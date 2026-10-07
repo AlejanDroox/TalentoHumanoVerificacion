@@ -1,0 +1,34 @@
+# Archivos y directorios ignorados por Git
+# No subir datos reales, archivos sensibles ni dependencias
+
+# Datos reales (nunca deben estar en el repositorio)
+*.xlsx
+*.xls
+*.csv
+datos_reales/
+listas_reales/
+excel_reales/
+capturas/
+
+# Dependencias (no aplica, proyecto sin Node)
+node_modules/
+
+# Archivos de entorno y configuración local
+.env
+.env.local
+*.local
+
+# Archivos del sistema operativo
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editores
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
