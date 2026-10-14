@@ -1,13 +1,14 @@
 /* ============================================================
-   VALIDADOR TEMPORAL DE VALORACIONES
-   app.js — Lógica completa en memoria. Sin persistencia.
-   Sin fetch, sin XMLHttpRequest, sin localStorage, sin cookies.
+   VALIDADOR DE VALORACIONES — app.js v2.0
+   Modo Oscuro · Modo Planilla · Chips de valoración · Buscador
+   Evaluadores frecuentes · Deshacer · Borrador local
+   Sin fetch · Sin XMLHttpRequest · Sin localStorage · Sin cookies
    ============================================================ */
 
 "use strict";
 
 /* ============================================================
-   1. REGLAS DE NEGOCIO (Configuración central)
+   1. REGLAS DE NEGOCIO
    ============================================================ */
 const REGLAS_VALORACION = {
   bloqueado: {
@@ -44,28 +45,39 @@ const REGLAS_VALORACION = {
   }
 };
 
-const PRIORIDAD_CONDICIONES = ["bloqueado", "reposo", "asignacion_especial", "normal"];
-
 /* ============================================================
    2. ESTADO DE LA SESIÓN (Solo en memoria)
    ============================================================ */
-let trabajadores     = [];
-let indiceActual     = 0;
-let evaluadorActual  = "";
-let sesionActiva     = false;
+let trabajadores         = [];
+let indiceActual         = 0;
+let evaluadorActual      = "";
+let sesionActiva         = false;
+let duplicadosDetectados = [];
+let ultimaValoracion     = null; // para el chip "Repetir"
+let historialDeshacer    = [];   // pila de snapshots para Ctrl+Z
+let evaluadoresFrecuentes = [];  // últimos evaluadores usados (máx 3)
+let modoVista            = "ficha"; // "ficha" | "planilla"
+let temaActual           = "light"; // "light" | "dark"
 
 /* ============================================================
-   3. REFERENCIAS A ELEMENTOS DEL DOM
+   3. REFERENCIAS AL DOM
    ============================================================ */
 const $ = id => document.getElementById(id);
 
-// Pantallas e indicadores
-const pantalla1         = $("pantalla-1");
-const pantalla2         = $("pantalla-2");
-const pantalla3         = $("pantalla-3");
-const indPaso1          = $("ind-paso-1");
-const indPaso2          = $("ind-paso-2");
-const indPaso3          = $("ind-paso-3");
+// Cabecera y tema
+const btnToggleTema       = $("btn-toggle-tema");
+const temaIcono           = $("tema-icono");
+const temaTexto           = $("tema-texto");
+const btnGuardarBorrador  = $("btn-guardar-borrador");
+const inputCargarBorrador = $("input-cargar-borrador");
+
+// Navegación / pantallas
+const pantalla1   = $("pantalla-1");
+const pantalla2   = $("pantalla-2");
+const pantalla3   = $("pantalla-3");
+const indPaso1    = $("ind-paso-1");
+const indPaso2    = $("ind-paso-2");
+const indPaso3    = $("ind-paso-3");
 
 // Paso 1
 const areaTrabajadores  = $("area-trabajadores");
@@ -82,8 +94,14 @@ const zonaAlertasPaso1  = $("zona-alertas-paso1");
 const zonaDuplicados    = $("zona-duplicados");
 const textoDuplicados   = $("texto-duplicados");
 const listaDuplicados   = $("lista-duplicados");
-const btnCorregirLista  = $("btn-corregir-lista");
-const btnContinuarVal   = $("btn-continuar-validos");
+const btnCorregirLista    = $("btn-corregir-lista");
+const btnContinuarVal     = $("btn-continuar-validos");
+const btnAutocleanPrimera  = $("btn-autoclean-primera");
+const btnAutocleanUltima   = $("btn-autoclean-ultima");
+const btnToggleVisorFilas  = $("btn-toggle-visor-filas");
+const txtToggleVisor       = $("txt-toggle-visor");
+const visorFilasContenedor = $("visor-filas-contenedor");
+const cuerpoTablaVisor     = $("cuerpo-tabla-visor");
 const zonaResumen       = $("zona-resumen-validacion");
 const zonaIniciar       = $("zona-iniciar");
 const btnIniciar        = $("btn-iniciar-evaluacion");
@@ -97,11 +115,23 @@ const panelCondiciones  = $("panel-condiciones");
 const btnToggleCond     = $("btn-toggle-condiciones");
 const cuerpoCond        = $("cuerpo-condiciones");
 
-// Paso 2
+// Paso 2 — comunes
 const textoProgresoEval = $("texto-progreso-eval");
 const barraProgreso     = $("barra-progreso");
 const barraCont         = $("barra-progreso-contenedor");
 const textoPorcentaje   = $("texto-porcentaje");
+const zonaAlertasPaso2  = $("zona-alertas-paso2");
+const btnFinalizar      = $("btn-finalizar-evaluacion");
+const btnDescartarEval  = $("btn-descartar-sesion-eval");
+const inputBuscador     = $("input-buscador");
+const buscadorResultados= $("buscador-resultados");
+const btnIrPendiente    = $("btn-ir-pendiente");
+const btnModoFicha      = $("btn-modo-ficha");
+const btnModoPlanilla   = $("btn-modo-planilla");
+const vistaFicha        = $("vista-ficha");
+const vistaPlanilla     = $("vista-planilla");
+
+// Paso 2 — vista ficha
 const panelBloqueado    = $("panel-bloqueado");
 const campoNombreCont   = $("campo-nombre-container");
 const nombreDisplay     = $("nombre-display");
@@ -109,7 +139,6 @@ const cedulaDisplay     = $("cedula-trabajador-display");
 const condicionDisplay  = $("condicion-display");
 const rangoDisplay      = $("rango-display");
 const numEvalDisplay    = $("num-evaluacion-display");
-const zonaAlertasPaso2  = $("zona-alertas-paso2");
 const formEval          = $("form-evaluacion");
 const inputValoracion   = $("input-valoracion");
 const inputEvaluador    = $("input-evaluador");
@@ -119,8 +148,17 @@ const hintValoracion    = $("hint-valoracion");
 const btnAnterior       = $("btn-anterior");
 const btnGuardarSig     = $("btn-guardar-siguiente");
 const btnOmitir         = $("btn-omitir");
-const btnFinalizar      = $("btn-finalizar-evaluacion");
-const btnDescartarEval  = $("btn-descartar-sesion-eval");
+const chipMax           = $("chip-max");
+const chipRepeat        = $("chip-repeat");
+const zonaChipsVal      = $("zona-chips-val");
+const zonaEvalFrecuentes= $("zona-evaluadores-frecuentes");
+const listaEvalFrecuentes=$("lista-eval-frecuentes");
+
+// Paso 2 — vista planilla
+const cuerpoTablaPlanilla = $("cuerpo-tabla-planilla");
+const inputEvaluadorPlanilla = $("input-evaluador-planilla");
+const errorEvaluadorPlanilla = $("error-evaluador-planilla");
+const btnGuardarPlanilla = $("btn-guardar-planilla");
 
 // Paso 3
 const verificAlin       = $("verificacion-alineacion");
@@ -133,12 +171,15 @@ const btnCopiarCedulas  = $("btn-copiar-cedulas");
 const btnCopiarVals     = $("btn-copiar-valoraciones");
 const btnCopiarEvals    = $("btn-copiar-evaluadores");
 const btnCopiarReporte  = $("btn-copiar-reporte");
+const btnCopiarTsv      = $("btn-copiar-tsv");
 const msgCedulas        = $("msg-cedulas-copiado");
 const msgValores        = $("msg-valores-copiado");
 const msgEvaluadores    = $("msg-evaluadores-copiado");
 const msgReporte        = $("msg-reporte-copiado");
+const msgTsv            = $("msg-tsv-copiado");
 const cuerpoTablaRep    = $("cuerpo-tabla-reporte");
 const reporteVacio      = $("reporte-vacio");
+const cuerpoPreview     = $("cuerpo-preview");
 const btnVolverEval     = $("btn-volver-evaluar");
 const btnNuevaSesion    = $("btn-nueva-sesion");
 const btnDescartarFinal = $("btn-descartar-sesion-final");
@@ -151,62 +192,96 @@ const modalBtnCancelar  = $("modal-btn-cancelar");
 const modalBtnConfirmar = $("modal-btn-confirmar");
 
 /* ============================================================
-   4. UTILIDADES PURAS
+   4. MODO OSCURO / CLARO
+   ============================================================ */
+function aplicarTema(tema) {
+  temaActual = tema;
+  document.documentElement.setAttribute("data-theme", tema);
+  if (tema === "dark") {
+    temaIcono.textContent = "☀️";
+    temaTexto.textContent = "Modo claro";
+  } else {
+    temaIcono.textContent = "🌙";
+    temaTexto.textContent = "Modo oscuro";
+  }
+}
+
+// Detectar preferencia del sistema al cargar
+(function () {
+  const prefOscuro = window.matchMedia &&
+    window.matchMedia("(prefers-color-scheme: dark)").matches;
+  aplicarTema(prefOscuro ? "dark" : "light");
+})();
+
+btnToggleTema.addEventListener("click", () => {
+  aplicarTema(temaActual === "light" ? "dark" : "light");
+});
+
+/* ============================================================
+   5. UTILIDADES PURAS
    ============================================================ */
 
-/**
- * Normaliza una cédula para comparaciones internas.
- * Elimina espacios, puntos, comas, guiones y convierte a mayúsculas.
- */
+/** Normaliza una cédula: elimina caracteres especiales, convierte a mayúsculas */
 function normalizarCedula(valor) {
   if (valor === null || valor === undefined) return "";
   return String(valor)
     .trim()
     .toUpperCase()
+    // Limpiar caracteres de Excel: espacios no rompibles, comillas automáticas
+    .replace(/\u00A0/g, " ")
+    .replace(/[\u2018\u2019\u201C\u201D]/g, "")
     .replace(/[.,\s\-]/g, "")
     .replace(/[^A-Z0-9]/g, "");
 }
 
-/**
- * Parsea un número tolerando coma o punto como separador decimal.
- */
+/** Parsea número tolerando coma o punto decimal */
 function parsearNumero(valor) {
   if (valor === null || valor === undefined) return NaN;
   const limpio = String(valor).trim().replace(",", ".");
   return parseFloat(limpio);
 }
 
-/**
- * Obtiene la primera columna (separada por TAB, punto y coma o múltiples espacios).
- */
+/** Obtiene la primera columna de una fila */
 function primerColumna(fila) {
   return fila.split(/\t|;|(?:\s{2,})/)[0].trim();
 }
 
 /**
- * Extrae la cédula y el nombre completo de una fila pegada desde Excel.
- *
- * Soporta:
- *   - Cédula al inicio:  12345678   Juan Pérez
- *   - Cédula al final:   Miguel Manuel Rodríguez   12345678
- *   - Nombres con 1 ó 2 nombres y 1 ó 2 apellidos en cualquier orden.
- *   - Separador de columnas: TAB (nativo Excel), 2+ espacios o punto y coma.
- *
- * La detección de cédula requiere al menos 5 dígitos consecutivos en el valor.
+ * Extrae cédula y nombre de una fila pegada desde Excel.
+ * Soporta: TAB, 2+ espacios, espacio simple (detecta el token numérico).
+ * Limpia caracteres basura de Excel.
  */
 function extraerDatosFila(filaCruda) {
-  // 1. Separar por TAB (separador nativo de Excel al copiar celdas)
-  let cols = filaCruda.split("\t").map(c => c.trim()).filter(c => c.length > 0);
+  // Limpiar caracteres basura de Excel (espacios no rompibles, BOM)
+  const filaLimpia = filaCruda
+    .replace(/\u00A0/g, " ")
+    .replace(/\uFEFF/g, "")
+    .replace(/[\u2018\u2019\u201C\u201D]/g, "");
+
+  // 1. Separar por TAB (separador nativo de Excel)
+  let cols = filaLimpia.split("\t").map(c => c.trim()).filter(c => c.length > 0);
 
   // 2. Si solo hay una columna, intentar separar por 2+ espacios
   if (cols.length <= 1) {
-    const porEspacios = filaCruda.split(/\s{2,}/).map(c => c.trim()).filter(c => c.length > 0);
+    const porEspacios = filaLimpia.split(/\s{2,}/).map(c => c.trim()).filter(c => c.length > 0);
     if (porEspacios.length > 1) cols = porEspacios;
   }
 
-  // 3. Si sigue siendo un solo valor, tratar todo como cédula (sin nombre)
+  // 3. Si sigue siendo un solo valor, intentar separar por espacio simple buscando token numérico
   if (cols.length <= 1) {
-    return { cedula: filaCruda.trim(), nombre: "" };
+    const tokens = filaLimpia.trim().split(/\s+/);
+    if (tokens.length > 1) {
+      // Buscar el token que parece cédula (5+ dígitos)
+      const esCedTok = t => /\d{5,}/.test(t.replace(/[^0-9]/g, ""));
+      const idxCed = tokens.findIndex(t => esCedTok(t));
+      if (idxCed !== -1) {
+        const ced = tokens[idxCed];
+        const nombre = tokens.filter((_, i) => i !== idxCed).join(" ");
+        return { cedula: ced, nombre: capitalizarNombre(nombre) };
+      }
+    }
+    // No se encontró nada especial: tratar todo como cédula
+    return { cedula: filaLimpia.trim(), nombre: "" };
   }
 
   // 4. Función: ¿parece esta cadena una cédula? (al menos 5 dígitos)
@@ -216,7 +291,6 @@ function extraerDatosFila(filaCruda) {
   };
 
   // 5. Buscar la columna que contiene la cédula
-  //    Prioridad: primera columna → última → búsqueda interior
   let indiceCedula = -1;
 
   if (pareceNumerica(cols[0])) {
@@ -229,39 +303,36 @@ function extraerDatosFila(filaCruda) {
     }
   }
 
-  // 6. Si no se identificó ninguna cédula, asumir primera columna
   if (indiceCedula === -1) {
-    return { cedula: cols[0], nombre: cols.slice(1).join(" ") };
+    return { cedula: cols[0], nombre: capitalizarNombre(cols.slice(1).join(" ")) };
   }
 
   const cedula = cols[indiceCedula];
 
-  // 7. El resto de columnas forman el nombre; capitalizar cada palabra
-  const nombre = cols
-    .filter((_, i) => i !== indiceCedula)
-    .join(" ")
-    .toLowerCase()
-    .replace(/\b\w/g, c => c.toUpperCase());
+  // 6. El resto de columnas forman el nombre
+  const nombre = capitalizarNombre(
+    cols.filter((_, i) => i !== indiceCedula).join(" ")
+  );
 
   return { cedula, nombre };
 }
 
-/**
- * Valida que una cadena tenga al menos un dígito numérico y no sea vacía.
- * Permite letras (V, E) seguidas de dígitos.
- */
+function capitalizarNombre(str) {
+  return str
+    .toLowerCase()
+    .replace(/\b\w/g, c => c.toUpperCase());
+}
+
+/** Valida que una cadena tenga al menos un dígito */
 function esFormatoValido(cedulaNorm) {
   return cedulaNorm.length > 0 && /\d/.test(cedulaNorm);
 }
 
-/**
- * Copia texto al portapapeles con fallback para contextos sin HTTPS.
- */
+/** Copia texto al portapapeles */
 function copiarAlPortapapeles(texto) {
   if (navigator.clipboard && window.isSecureContext) {
     return navigator.clipboard.writeText(texto);
   }
-  // Fallback via execCommand
   return new Promise((resolve, reject) => {
     const ta = document.createElement("textarea");
     ta.value = texto;
@@ -280,27 +351,24 @@ function copiarAlPortapapeles(texto) {
   });
 }
 
-/** Muestra un mensaje de copiado temporalmente */
+/** Muestra mensaje de copiado temporalmente */
 function mostrarMsgCopiado(elemento) {
   elemento.classList.add("visible");
   setTimeout(() => elemento.classList.remove("visible"), 3500);
 }
 
 /* ============================================================
-   5. CONSTRUCCIÓN DE ALERTAS (SIN innerHTML con datos de usuario)
+   6. CONSTRUCCIÓN DE ALERTAS (sin innerHTML con datos de usuario)
    ============================================================ */
 function crearAlerta(tipo, icono, textoMensaje) {
   const div = document.createElement("div");
   div.className = `alerta alerta-${tipo}`;
-
   const spanIcon = document.createElement("span");
   spanIcon.className = "alerta-icono";
   spanIcon.setAttribute("aria-hidden", "true");
   spanIcon.textContent = icono;
-
   const spanMsg = document.createElement("div");
   spanMsg.textContent = textoMensaje;
-
   div.appendChild(spanIcon);
   div.appendChild(spanMsg);
   return div;
@@ -311,14 +379,13 @@ function limpiarZona(zona) {
 }
 
 /* ============================================================
-   6. NAVEGACIÓN ENTRE PANTALLAS
+   7. NAVEGACIÓN ENTRE PANTALLAS
    ============================================================ */
 function mostrarPantalla(num) {
   [pantalla1, pantalla2, pantalla3].forEach(p => p.classList.remove("activa"));
   [indPaso1, indPaso2, indPaso3].forEach(i => {
     i.classList.remove("activo", "completado");
   });
-
   if (num === 1) {
     pantalla1.classList.add("activa");
     indPaso1.classList.add("activo");
@@ -335,15 +402,14 @@ function mostrarPantalla(num) {
 }
 
 /* ============================================================
-   7. PANEL COLAPSABLE DE CONDICIONES
+   8. PANEL COLAPSABLE DE CONDICIONES
    ============================================================ */
 btnToggleCond.addEventListener("click", () => {
   const abierto = panelCondiciones.classList.toggle("abierto");
   btnToggleCond.setAttribute("aria-expanded", abierto ? "true" : "false");
-  cuerpoCond.style.display = abierto ? "block" : "none";
 });
 
-// Contadores en tiempo real de las listas de condiciones
+// Contadores en tiempo real
 function actualizarContadorCondicion(area, contadorEl) {
   const filas = leerCedulasDeArea(area);
   contadorEl.textContent = `${filas.length} cédula${filas.length !== 1 ? "s" : ""}`;
@@ -360,7 +426,7 @@ areaReposo.addEventListener("input",    () => actualizarContadorCondicion(areaRe
 areaEspecial.addEventListener("input",  () => actualizarContadorCondicion(areaEspecial, contadorEsp));
 
 /* ============================================================
-   8. CONTADOR DE FILAS — PASO 1
+   9. CONTADOR DE FILAS — PASO 1
    ============================================================ */
 areaTrabajadores.addEventListener("input", () => {
   const filas = areaTrabajadores.value.split("\n").filter(l => l.trim().length > 0);
@@ -368,10 +434,8 @@ areaTrabajadores.addEventListener("input", () => {
 });
 
 /* ============================================================
-   9. VALIDACIÓN INICIAL — PASO 1
+   10. VALIDACIÓN INICIAL — PASO 1
    ============================================================ */
-let duplicadosDetectados = [];
-
 btnValidar.addEventListener("click", validarListaInicial);
 
 function validarListaInicial() {
@@ -389,12 +453,12 @@ function validarListaInicial() {
     return;
   }
 
-  // Leer listas de condiciones especiales
+  // Leer listas de condiciones
   const cedsBloquNorm  = new Set(leerCedulasDeArea(areaBloqueados).map(normalizarCedula).filter(v => v));
   const cedsReposoNorm = new Set(leerCedulasDeArea(areaReposo).map(normalizarCedula).filter(v => v));
   const cedsEspecNorm  = new Set(leerCedulasDeArea(areaEspecial).map(normalizarCedula).filter(v => v));
 
-  // Detectar encabezado probable (primera fila sin dígitos)
+  // Detectar encabezado
   const filasCrudas = textoRaw.split("\n");
   let offsetFila = 0;
   const primeraFila = primerColumna(filasCrudas[0]).trim();
@@ -412,9 +476,8 @@ function validarListaInicial() {
 
   const filasAUsar = filasCrudas.slice(offsetFila);
 
-  // Procesar filas
-  const mapaVistas  = new Map(); // cedulaNorm → [índice de fila]
-  const registros   = [];       // todos los registros procesados
+  const mapaVistas  = new Map();
+  const registros   = [];
   let vaciosInvalidos = 0;
 
   filasAUsar.forEach((filaCruda, idx) => {
@@ -423,7 +486,7 @@ function validarListaInicial() {
 
     if (colUno.trim() === "") {
       vaciosInvalidos++;
-      return; // ignorar vacíos
+      return;
     }
 
     const cedulaNorm = normalizarCedula(colUno);
@@ -448,10 +511,7 @@ function validarListaInicial() {
       return;
     }
 
-    // Registrar para detección de duplicados
-    if (!mapaVistas.has(cedulaNorm)) {
-      mapaVistas.set(cedulaNorm, []);
-    }
+    if (!mapaVistas.has(cedulaNorm)) mapaVistas.set(cedulaNorm, []);
     mapaVistas.get(cedulaNorm).push(numFilaOriginal);
 
     registros.push({
@@ -459,7 +519,7 @@ function validarListaInicial() {
       cedulaOriginal: colUno,
       cedulaNormalizada: cedulaNorm,
       nombreCompleto: nombreExtraido,
-      condicion: null,       // se determina después
+      condicion: null,
       estado: "pendiente",
       errores: [],
       advertencias: [],
@@ -471,10 +531,9 @@ function validarListaInicial() {
     });
   });
 
-  // Detectar duplicados y marcarlos
+  // Detectar duplicados
   duplicadosDetectados = [];
   const seenDuplicadas = new Set();
-
   for (const [cednorm, filas] of mapaVistas.entries()) {
     if (filas.length > 1) {
       duplicadosDetectados.push({ cedulaNorm: cednorm, filas });
@@ -482,7 +541,6 @@ function validarListaInicial() {
     }
   }
 
-  // Marcar registros duplicados (conservar la primera aparición; las demás quedan fuera)
   const primeraOcurrencia = new Set();
   registros.forEach(r => {
     if (r.estado === "error") return;
@@ -497,7 +555,7 @@ function validarListaInicial() {
     }
   });
 
-  // Asignar condición por prioridad a los registros válidos
+  // Asignar condición por prioridad
   let cntBloq = 0, cntRep = 0, cntEsp = 0, cntNorm = 0;
   registros.forEach(r => {
     if (r.estado === "error" || r.estado === "duplicado") return;
@@ -518,36 +576,31 @@ function validarListaInicial() {
     }
   });
 
-  // Calcular totales para resumen
-  const totalDuplicados = duplicadosDetectados.length;
-  const totalInvalidos  = vaciosInvalidos + registros.filter(r => r.estado === "error").length;
+  const totalDuplicados  = duplicadosDetectados.length;
+  const totalInvalidos   = vaciosInvalidos + registros.filter(r => r.estado === "error").length;
   const totalParaEvaluar = registros.filter(r => r.estado === "pendiente" || r.estado === "bloqueado").length;
 
-  // Mostrar resumen
   mostrarResumen(totalParaEvaluar - cntBloq, cntBloq, cntRep, cntEsp, totalDuplicados, totalInvalidos);
 
-  // Mostrar duplicados si hay
   if (duplicadosDetectados.length > 0) {
     mostrarPanelDuplicados(duplicadosDetectados, registros);
   }
 
-  // Guardar registros en estado global (temporalmente, hasta confirmar)
   trabajadores = registros;
 
-  // Mostrar alerta de resumen general
   const totalProcesados = filasAUsar.filter(l => l.trim()).length;
-  const msgResumen = `Se procesaron ${totalProcesados} fila${totalProcesados !== 1 ? "s" : ""}. ` +
-    `${totalParaEvaluar - cntBloq} para evaluar, ${cntBloq} bloqueado${cntBloq !== 1 ? "s" : ""}, ` +
-    `${totalDuplicados} duplicado${totalDuplicados !== 1 ? "s" : ""}, ${totalInvalidos} inválido${totalInvalidos !== 1 ? "s" : ""}.`;
-
   zonaAlertasPaso1.appendChild(
-    crearAlerta(totalParaEvaluar - cntBloq > 0 ? "exito" : "aviso", "📊", msgResumen)
+    crearAlerta(
+      totalParaEvaluar - cntBloq > 0 ? "exito" : "aviso",
+      "📊",
+      `Se procesaron ${totalProcesados} fila${totalProcesados !== 1 ? "s" : ""}. ` +
+      `${totalParaEvaluar - cntBloq} para evaluar, ${cntBloq} bloqueado${cntBloq !== 1 ? "s" : ""}, ` +
+      `${totalDuplicados} duplicado${totalDuplicados !== 1 ? "s" : ""}, ${totalInvalidos} inválido${totalInvalidos !== 1 ? "s" : ""}.`
+    )
   );
 
-  // Si no hay duplicados y hay válidos, mostrar botón directo
   if (duplicadosDetectados.length === 0 && (totalParaEvaluar - cntBloq) > 0) {
     zonaIniciar.classList.remove("d-none");
-    // Mostrar botones de orden solo si al menos un registro tiene nombre
     const hayNombres = registros.some(r => r.nombreCompleto && r.nombreCompleto.trim());
     zonaOrdenamiento.style.display = hayNombres ? "" : "none";
   } else if (duplicadosDetectados.length === 0 && (totalParaEvaluar - cntBloq) === 0) {
@@ -568,34 +621,183 @@ function mostrarResumen(validos, bloq, rep, esp, dup, inv) {
 }
 
 function mostrarPanelDuplicados(dups, registros) {
-  // Texto resumen
   textoDuplicados.textContent =
     `Se detectaron ${dups.length} cédula${dups.length !== 1 ? "s" : ""} duplicada${dups.length !== 1 ? "s" : ""}. ` +
-    `Se conservará la primera aparición de cada una y las demás serán excluidas.`;
+    `Utilice los botones rápidos para limpiar la lista automáticamente o inspeccione cada caso abajo:`;
 
-  // Lista de duplicados (sin innerHTML con datos del usuario)
   listaDuplicados.replaceChildren();
+
   dups.forEach(d => {
-    const p = document.createElement("p");
-    p.style.marginBottom = "4px";
+    const tarjeta = document.createElement("div");
+    tarjeta.className = "tarjeta-duplicado-caso";
 
-    // Buscar cédula original para mostrar al usuario
-    const reg = registros.find(r => r.cedulaNormalizada === d.cedulaNorm);
-    const cedMostrar = reg ? reg.cedulaOriginal : d.cedulaNorm;
+    const regBase = registros.find(r => r.cedulaNormalizada === d.cedulaNorm);
+    const cedMostrar = regBase ? regBase.cedulaOriginal : d.cedulaNorm;
 
-    const strong = document.createElement("strong");
-    strong.textContent = `Cédula duplicada: ${cedMostrar}`;
-    const texto = document.createTextNode(` — aparece en las filas: ${d.filas.join(", ")}.`);
+    const header = document.createElement("div");
+    header.className = "tarjeta-duplicado-header";
+    header.innerHTML = `<span>⚠️ Cédula duplicada: <strong>${cedMostrar}</strong></span><span>(${d.filas.length} apariciones)</span>`;
+    tarjeta.appendChild(header);
 
-    p.appendChild(strong);
-    p.appendChild(texto);
-    listaDuplicados.appendChild(p);
+    // Listar cada ocurrencia con su número de fila y nombre
+    const ocurrencias = registros.filter(r => r.cedulaNormalizada === d.cedulaNorm);
+    ocurrencias.forEach(r => {
+      const item = document.createElement("div");
+      item.className = "duplicado-opcion-item";
+
+      const info = document.createElement("div");
+      const badgeFila = document.createElement("span");
+      badgeFila.className = "badge-num-fila";
+      badgeFila.textContent = `Fila #${r.numeroFilaOriginal}`;
+
+      const txtNombre = document.createTextNode(
+        ` · ${r.cedulaOriginal}${r.nombreCompleto ? ` (${r.nombreCompleto})` : ""}`
+      );
+
+      info.appendChild(badgeFila);
+      info.appendChild(txtNombre);
+
+      const btnEliminar = document.createElement("button");
+      btnEliminar.className = "btn-eliminar-fila";
+      btnEliminar.type = "button";
+      btnEliminar.textContent = `🗑️ Eliminar Fila #${r.numeroFilaOriginal}`;
+      btnEliminar.addEventListener("click", () => eliminarFilaOriginal(r.numeroFilaOriginal));
+
+      item.appendChild(info);
+      item.appendChild(btnEliminar);
+      tarjeta.appendChild(item);
+    });
+
+    listaDuplicados.appendChild(tarjeta);
   });
 
   zonaDuplicados.classList.remove("d-none");
+
+  // Si el visor de filas estaba abierto, actualizarlo también
+  if (!visorFilasContenedor.classList.contains("d-none")) {
+    renderizarVisorFilas(registros);
+  }
 }
 
-// Botón: Corregir lista
+/* --- Desduplicación Automática Masiva --- */
+btnAutocleanPrimera.addEventListener("click", () => autodesduplicar("primera"));
+btnAutocleanUltima.addEventListener("click", () => autodesduplicar("ultima"));
+
+function autodesduplicar(modo) {
+  const filasRaw = areaTrabajadores.value.split("\n");
+  const mapaVistas = new Map();
+
+  filasRaw.forEach((f, idx) => {
+    const { cedula } = extraerDatosFila(f);
+    const cnorm = normalizarCedula(cedula);
+    if (cnorm && esFormatoValido(cnorm)) {
+      if (!mapaVistas.has(cnorm)) mapaVistas.set(cnorm, []);
+      mapaVistas.get(cnorm).push(idx);
+    }
+  });
+
+  const indicesAEliminar = new Set();
+  for (const [, indices] of mapaVistas.entries()) {
+    if (indices.length > 1) {
+      if (modo === "primera") {
+        indices.slice(1).forEach(i => indicesAEliminar.add(i));
+      } else {
+        indices.slice(0, -1).forEach(i => indicesAEliminar.add(i));
+      }
+    }
+  }
+
+  const filasLimpias = filasRaw.filter((_, idx) => !indicesAEliminar.has(idx));
+  areaTrabajadores.value = filasLimpias.join("\n");
+  validarListaInicial();
+}
+
+/* --- Visor de Lista Numerada por Filas --- */
+btnToggleVisorFilas.addEventListener("click", () => {
+  const estaOculto = visorFilasContenedor.classList.contains("d-none");
+  visorFilasContenedor.classList.toggle("d-none", !estaOculto);
+  txtToggleVisor.textContent = estaOculto ? "Ocultar lista numerada" : "Ver lista numerada por filas";
+  if (estaOculto) {
+    renderizarVisorFilas(trabajadores);
+  }
+});
+
+function renderizarVisorFilas(registros) {
+  cuerpoTablaVisor.replaceChildren();
+
+  if (registros.length === 0) {
+    const tr = document.createElement("tr");
+    const td = document.createElement("td");
+    td.colSpan = 5;
+    td.textContent = "No hay filas para mostrar.";
+    td.style.textAlign = "center";
+    td.style.color = "var(--txt-muted)";
+    tr.appendChild(td);
+    cuerpoTablaVisor.appendChild(tr);
+    return;
+  }
+
+  registros.forEach(r => {
+    const tr = document.createElement("tr");
+    if (r.estado === "duplicado") tr.className = "fila-num-duplicada";
+    if (r.estado === "error") tr.className = "fila-num-error";
+
+    // Fila #
+    const tdFila = document.createElement("td");
+    const badgeFila = document.createElement("span");
+    badgeFila.className = "badge-num-fila";
+    badgeFila.textContent = `#${r.numeroFilaOriginal}`;
+    tdFila.appendChild(badgeFila);
+    tr.appendChild(tdFila);
+
+    // Cédula
+    const tdCed = document.createElement("td");
+    tdCed.textContent = r.cedulaOriginal || "(vacía)";
+    tdCed.style.fontWeight = "700";
+    tr.appendChild(tdCed);
+
+    // Nombre
+    const tdNom = document.createElement("td");
+    tdNom.textContent = r.nombreCompleto || "—";
+    tdNom.style.fontSize = ".8rem";
+    tdNom.style.color = "var(--txt-muted)";
+    tr.appendChild(tdNom);
+
+    // Estado
+    const tdEst = document.createElement("td");
+    const badgeEst = document.createElement("span");
+    const mapaB = {
+      pendiente: "badge-pendiente", valido: "badge-valido",
+      duplicado: "badge-error", error: "badge-error", bloqueado: "badge-bloqueado"
+    };
+    badgeEst.className = `badge ${mapaB[r.estado] || "badge-pendiente"}`;
+    badgeEst.textContent = r.estado;
+    tdEst.appendChild(badgeEst);
+    tr.appendChild(tdEst);
+
+    // Acción
+    const tdAcc = document.createElement("td");
+    const btnDel = document.createElement("button");
+    btnDel.className = "btn-eliminar-fila";
+    btnDel.type = "button";
+    btnDel.textContent = "🗑️ Eliminar";
+    btnDel.addEventListener("click", () => eliminarFilaOriginal(r.numeroFilaOriginal));
+    tdAcc.appendChild(btnDel);
+    tr.appendChild(tdAcc);
+
+    cuerpoTablaVisor.appendChild(tr);
+  });
+}
+
+function eliminarFilaOriginal(numFila) {
+  const filasRaw = areaTrabajadores.value.split("\n");
+  if (numFila >= 1 && numFila <= filasRaw.length) {
+    filasRaw.splice(numFila - 1, 1);
+    areaTrabajadores.value = filasRaw.join("\n");
+    validarListaInicial();
+  }
+}
+
 btnCorregirLista.addEventListener("click", () => {
   zonaDuplicados.classList.add("d-none");
   zonaResumen.classList.add("d-none");
@@ -603,49 +805,45 @@ btnCorregirLista.addEventListener("click", () => {
   areaTrabajadores.focus();
 });
 
-// Botón: Continuar solo con válidos (excluir duplicados)
 btnContinuarVal.addEventListener("click", () => {
   const excluidos = trabajadores.filter(r => r.estado === "duplicado").length;
   trabajadores = trabajadores.filter(r => r.estado !== "duplicado" && r.estado !== "error");
-
   zonaDuplicados.classList.add("d-none");
   limpiarZona(zonaAlertasPaso1);
-
   if (excluidos > 0) {
+    const validosCnt = trabajadores.filter(r => r.estado === "pendiente").length;
     zonaAlertasPaso1.appendChild(
-      crearAlerta("aviso", "⚠️", `Se excluyeron ${excluidos} registro${excluidos !== 1 ? "s" : ""} duplicado${excluidos !== 1 ? "s" : ""}. Se continuará con ${trabajadores.filter(r => r.estado === "pendiente").length} trabajador${trabajadores.filter(r => r.estado === "pendiente").length !== 1 ? "es" : ""} válido${trabajadores.filter(r => r.estado === "pendiente").length !== 1 ? "s" : ""}.`)
+      crearAlerta("aviso", "⚠️", `Se excluyeron ${excluidos} registro${excluidos !== 1 ? "s" : ""} duplicado${excluidos !== 1 ? "s" : ""}. Se continuará con ${validosCnt} trabajador${validosCnt !== 1 ? "es" : ""} válido${validosCnt !== 1 ? "s" : ""}.`)
     );
   }
-
   zonaIniciar.classList.remove("d-none");
   const hayNombresV = trabajadores.some(r => r.nombreCompleto && r.nombreCompleto.trim());
   zonaOrdenamiento.style.display = hayNombresV ? "" : "none";
 });
 
-// Botón: Limpiar lista
 btnLimpiar.addEventListener("click", () => {
   areaTrabajadores.value = "";
   areaBloqueados.value   = "";
   areaReposo.value       = "";
   areaEspecial.value     = "";
-  contadorFilas.textContent    = "0 filas detectadas";
-  contadorBloq.textContent     = "0 cédulas";
-  contadorRep.textContent      = "0 cédulas";
-  contadorEsp.textContent      = "0 cédulas";
+  contadorFilas.textContent = "0 filas detectadas";
+  contadorBloq.textContent  = "0 cédulas";
+  contadorRep.textContent   = "0 cédulas";
+  contadorEsp.textContent   = "0 cédulas";
   zonaDuplicados.classList.add("d-none");
   zonaResumen.classList.add("d-none");
   zonaIniciar.classList.add("d-none");
   zonaOrdenamiento.style.display = "none";
   alertaOrdenamiento.style.display = "none";
   btnOrdenarOrig.disabled = true;
-  btnOrdenarAZ.style.fontWeight = "";
-  btnOrdenarZA.style.fontWeight = "";
+  btnOrdenarAZ.classList.remove("btn-orden-activo");
+  btnOrdenarZA.classList.remove("btn-orden-activo");
   limpiarZona(zonaAlertasPaso1);
   trabajadores = [];
 });
 
 /* ============================================================
-   9b. ORDENAMIENTO DE LA LISTA (antes de evaluar)
+   11. ORDENAMIENTO — PASO 1
    ============================================================ */
 btnOrdenarAZ.addEventListener("click", () => {
   trabajadores.sort((a, b) => {
@@ -656,8 +854,8 @@ btnOrdenarAZ.addEventListener("click", () => {
   alertaOrdenamiento.style.display = "";
   textoOrdenamiento.textContent = "Lista ordenada A → Z por nombre. El evaluador verá los trabajadores en este orden.";
   btnOrdenarOrig.disabled = false;
-  btnOrdenarAZ.style.fontWeight = "700";
-  btnOrdenarZA.style.fontWeight = "";
+  btnOrdenarAZ.classList.add("btn-orden-activo");
+  btnOrdenarZA.classList.remove("btn-orden-activo");
 });
 
 btnOrdenarZA.addEventListener("click", () => {
@@ -669,47 +867,80 @@ btnOrdenarZA.addEventListener("click", () => {
   alertaOrdenamiento.style.display = "";
   textoOrdenamiento.textContent = "Lista ordenada Z → A por nombre. El evaluador verá los trabajadores en este orden.";
   btnOrdenarOrig.disabled = false;
-  btnOrdenarZA.style.fontWeight = "700";
-  btnOrdenarAZ.style.fontWeight = "";
+  btnOrdenarZA.classList.add("btn-orden-activo");
+  btnOrdenarAZ.classList.remove("btn-orden-activo");
 });
 
 btnOrdenarOrig.addEventListener("click", () => {
   trabajadores.sort((a, b) => (a.numeroFilaOriginal || 0) - (b.numeroFilaOriginal || 0));
   alertaOrdenamiento.style.display = "none";
   btnOrdenarOrig.disabled = true;
-  btnOrdenarAZ.style.fontWeight = "";
-  btnOrdenarZA.style.fontWeight = "";
+  btnOrdenarAZ.classList.remove("btn-orden-activo");
+  btnOrdenarZA.classList.remove("btn-orden-activo");
 });
 
 /* ============================================================
-   10. INICIAR EVALUACIÓN
+   12. INICIAR EVALUACIÓN
    ============================================================ */
 btnIniciar.addEventListener("click", () => {
-  // Filtrar: solo pendientes y bloqueados entran a la cola
   trabajadores = trabajadores.filter(r => r.estado === "pendiente" || r.estado === "bloqueado");
 
   if (trabajadores.length === 0) {
     limpiarZona(zonaAlertasPaso1);
-    zonaAlertasPaso1.appendChild(
-      crearAlerta("error", "❌", "No hay trabajadores para evaluar.")
-    );
+    zonaAlertasPaso1.appendChild(crearAlerta("error", "❌", "No hay trabajadores para evaluar."));
     return;
   }
 
-  indiceActual    = 0;
-  evaluadorActual = "";
-  sesionActiva    = true;
+  indiceActual     = 0;
+  evaluadorActual  = "";
+  sesionActiva     = true;
+  ultimaValoracion = null;
+  historialDeshacer = [];
 
   mostrarPantalla(2);
-  cargarTrabajador(indiceActual);
-  inputValoracion.focus();
+  if (modoVista === "planilla") {
+    renderizarPlanilla();
+  } else {
+    cargarTrabajador(indiceActual);
+    inputValoracion.focus();
+  }
 });
 
 /* ============================================================
-   11. EVALUACIÓN INDIVIDUAL — PASO 2
+   13. SELECTOR DE MODO DE VISTA
+   ============================================================ */
+btnModoFicha.addEventListener("click", () => cambiarModoVista("ficha"));
+btnModoPlanilla.addEventListener("click", () => cambiarModoVista("planilla"));
+
+function cambiarModoVista(modo) {
+  modoVista = modo;
+
+  if (modo === "ficha") {
+    btnModoFicha.classList.add("activo");
+    btnModoFicha.setAttribute("aria-pressed", "true");
+    btnModoPlanilla.classList.remove("activo");
+    btnModoPlanilla.setAttribute("aria-pressed", "false");
+    vistaFicha.style.display = "";
+    vistaPlanilla.style.display = "none";
+    cargarTrabajador(indiceActual);
+    inputValoracion.focus();
+  } else {
+    btnModoPlanilla.classList.add("activo");
+    btnModoPlanilla.setAttribute("aria-pressed", "true");
+    btnModoFicha.classList.remove("activo");
+    btnModoFicha.setAttribute("aria-pressed", "false");
+    vistaPlanilla.style.display = "";
+    vistaFicha.style.display = "none";
+    renderizarPlanilla();
+  }
+}
+
+/* ============================================================
+   14. EVALUACIÓN INDIVIDUAL — MODO FICHA
    ============================================================ */
 function cargarTrabajador(idx) {
   if (idx < 0 || idx >= trabajadores.length) return;
+  indiceActual = idx;
 
   const t = trabajadores[idx];
   const regla = REGLAS_VALORACION[t.condicion] || REGLAS_VALORACION.normal;
@@ -717,20 +948,12 @@ function cargarTrabajador(idx) {
   const totalEvaluables = trabajadores.filter(w => w.condicion !== "bloqueado").length;
 
   // Progreso
-  const evaluados = trabajadores.filter(w => w.estado === "valido" || w.estado === "omitido").length;
-  const pct = total > 0 ? Math.round((evaluados / total) * 100) : 0;
+  actualizarProgreso();
 
-  textoProgresoEval.textContent = `Evaluación ${idx + 1} de ${total}${totalEvaluables !== total ? ` (${totalEvaluables} evaluables)` : ""}`;
-  barraProgreso.style.width = `${pct}%`;
-  barraProgreso.classList.toggle("completa", pct === 100);
-  barraCont.setAttribute("aria-valuenow", pct);
-  textoPorcentaje.textContent = `${evaluados} de ${total} procesados (${pct}%)`;
-
-  // Información del trabajador
+  // Info del trabajador
   cedulaDisplay.textContent  = t.cedulaOriginal;
   numEvalDisplay.textContent = `${idx + 1} de ${total}`;
 
-  // Nombre del trabajador (visible solo si se proporcionó)
   if (t.nombreCompleto && t.nombreCompleto.trim()) {
     campoNombreCont.style.display = "";
     nombreDisplay.textContent = t.nombreCompleto;
@@ -741,34 +964,50 @@ function cargarTrabajador(idx) {
 
   // Badge de condición
   condicionDisplay.replaceChildren();
-  const badge = document.createElement("span");
   const mapaBadge = {
     normal: "badge-normal",
     reposo: "badge-reposo",
     asignacion_especial: "badge-especial",
     bloqueado: "badge-bloqueado"
   };
+  const badge = document.createElement("span");
   badge.className = `badge ${mapaBadge[t.condicion] || "badge-normal"}`;
   badge.textContent = regla.etiqueta;
   condicionDisplay.appendChild(badge);
 
   rangoDisplay.textContent = regla.rangoTexto;
 
-  // Mostrar/ocultar formulario según si está bloqueado
+  // Formulario
   if (t.condicion === "bloqueado") {
     panelBloqueado.classList.remove("d-none");
     formEval.style.display = "none";
+    zonaChipsVal.style.display = "none";
     btnGuardarSig.disabled = true;
   } else {
     panelBloqueado.classList.add("d-none");
     formEval.style.display = "block";
+    zonaChipsVal.style.display = "block";
     btnGuardarSig.disabled = false;
 
-    // Precargar valores guardados o el evaluador persistente
     inputValoracion.value = t.valoracionOriginal || "";
     inputEvaluador.value  = t.cedulaEvaluadorOriginal || evaluadorActual;
 
     hintValoracion.textContent = `Rango permitido: ${regla.rangoTexto}`;
+
+    // Actualizar chip Máx
+    chipMax.textContent = `Máx (${regla.maximo})`;
+    chipMax.dataset.val = regla.maximo;
+
+    // Habilitar/deshabilitar chips según condición
+    document.querySelectorAll(".chip-val[data-val]").forEach(btn => {
+      const val = parseInt(btn.dataset.val, 10);
+      const fuera = val > regla.maximo || val < regla.minimo;
+      btn.disabled = fuera;
+      btn.title = fuera ? `Fuera del rango permitido (${regla.rangoTexto})` : "";
+    });
+
+    // Chip repetir
+    chipRepeat.disabled = ultimaValoracion === null;
 
     limpiarErrores();
     inputValoracion.focus();
@@ -780,8 +1019,23 @@ function cargarTrabajador(idx) {
     zonaAlertasPaso2.appendChild(crearAlerta("aviso", "⚠️", adv));
   });
 
-  // Botón anterior
   btnAnterior.disabled = idx === 0;
+
+  // Evaluadores frecuentes
+  actualizarEvaluadoresFrecuentes();
+}
+
+function actualizarProgreso() {
+  const total    = trabajadores.length;
+  const evaluados = trabajadores.filter(w => w.estado === "valido" || w.estado === "omitido").length;
+  const pct      = total > 0 ? Math.round((evaluados / total) * 100) : 0;
+
+  const totalEvaluables = trabajadores.filter(w => w.condicion !== "bloqueado").length;
+  textoProgresoEval.textContent = `Evaluación ${indiceActual + 1} de ${total}${totalEvaluables !== total ? ` (${totalEvaluables} evaluables)` : ""}`;
+  barraProgreso.style.width = `${pct}%`;
+  barraProgreso.classList.toggle("completa", pct === 100);
+  barraCont.setAttribute("aria-valuenow", pct);
+  textoPorcentaje.textContent = `${evaluados} de ${total} procesados (${pct}%)`;
 }
 
 function limpiarErrores() {
@@ -791,36 +1045,65 @@ function limpiarErrores() {
   inputEvaluador.classList.remove("input-error", "input-ok");
 }
 
-/* --- Validación en Tiempo Real ---------------------------- */
-inputValoracion.addEventListener("input", () => validarCampoValoracion(false));
-inputEvaluador.addEventListener("input",  () => validarCampoEvaluador(false));
+/* --- Chips de valoración rápida --- */
+document.querySelectorAll(".chip-val[data-val]").forEach(btn => {
+  btn.addEventListener("click", () => {
+    if (btn.disabled) return;
+    inputValoracion.value = btn.dataset.val;
+    validarCampoValoracion(false);
+    inputValoracion.focus();
+  });
+});
 
-function validarCampoValoracion(mostrarError = true) {
+chipMax.addEventListener("click", () => {
+  const t = trabajadores[indiceActual];
+  if (!t || t.condicion === "bloqueado") return;
+  const regla = REGLAS_VALORACION[t.condicion] || REGLAS_VALORACION.normal;
+  inputValoracion.value = regla.maximo;
+  validarCampoValoracion(false);
+  inputValoracion.focus();
+});
+
+chipRepeat.addEventListener("click", () => {
+  if (ultimaValoracion !== null) {
+    inputValoracion.value = ultimaValoracion;
+    validarCampoValoracion(false);
+    inputValoracion.focus();
+  }
+});
+
+/* --- Validación en tiempo real --- */
+inputValoracion.addEventListener("input", () => validarCampoValoracion(false));
+inputEvaluador.addEventListener("input",  () => {
+  validarCampoEvaluador(false);
+  actualizarEvaluadoresFrecuentes();
+});
+
+function validarCampoValoracion(mostrarErr = true) {
   const t = trabajadores[indiceActual];
   if (!t) return false;
   const regla = REGLAS_VALORACION[t.condicion] || REGLAS_VALORACION.normal;
-
   const val = inputValoracion.value.trim();
 
   if (!val) {
-    if (mostrarError) mostrarError_(errorValoracion, "La valoración es obligatoria.");
+    if (mostrarErr) mostrarError_(errorValoracion, "La valoración es obligatoria.");
     inputValoracion.classList.remove("input-ok");
-    inputValoracion.classList.toggle("input-error", mostrarError);
+    inputValoracion.classList.toggle("input-error", mostrarErr);
     return false;
   }
 
   const num = parsearNumero(val);
   if (isNaN(num)) {
-    if (mostrarError) mostrarError_(errorValoracion, "La valoración debe ser un número válido (use punto o coma decimal).");
+    if (mostrarErr) mostrarError_(errorValoracion, "La valoración debe ser un número válido.");
     inputValoracion.classList.remove("input-ok");
-    inputValoracion.classList.toggle("input-error", mostrarError);
+    inputValoracion.classList.toggle("input-error", mostrarErr);
     return false;
   }
 
   if (num < regla.minimo || num > regla.maximo) {
-    if (mostrarError) mostrarError_(errorValoracion, `La valoración debe estar entre ${regla.minimo} y ${regla.maximo}.`);
+    if (mostrarErr) mostrarError_(errorValoracion, `La valoración debe estar entre ${regla.minimo} y ${regla.maximo}.`);
     inputValoracion.classList.remove("input-ok");
-    inputValoracion.classList.toggle("input-error", mostrarError);
+    inputValoracion.classList.toggle("input-error", mostrarErr);
     return false;
   }
 
@@ -830,20 +1113,20 @@ function validarCampoValoracion(mostrarError = true) {
   return true;
 }
 
-function validarCampoEvaluador(mostrarError = true) {
+function validarCampoEvaluador(mostrarErr = true) {
   const val = normalizarCedula(inputEvaluador.value);
 
   if (!val) {
-    if (mostrarError) mostrarError_(errorEvaluador, "Debe indicar la cédula del evaluador antes de guardar.");
+    if (mostrarErr) mostrarError_(errorEvaluador, "Debe indicar la cédula del evaluador antes de guardar.");
     inputEvaluador.classList.remove("input-ok");
-    inputEvaluador.classList.toggle("input-error", mostrarError);
+    inputEvaluador.classList.toggle("input-error", mostrarErr);
     return false;
   }
 
   if (!esFormatoValido(val)) {
-    if (mostrarError) mostrarError_(errorEvaluador, "La cédula del evaluador no tiene un formato válido.");
+    if (mostrarErr) mostrarError_(errorEvaluador, "La cédula del evaluador no tiene un formato válido.");
     inputEvaluador.classList.remove("input-ok");
-    inputEvaluador.classList.toggle("input-error", mostrarError);
+    inputEvaluador.classList.toggle("input-error", mostrarErr);
     return false;
   }
 
@@ -858,12 +1141,11 @@ function mostrarError_(el, msg) {
   el.classList.add("visible");
 }
 
-/* --- Guardar evaluación ----------------------------------- */
+/* --- Guardar evaluación + Deshacer --- */
 function guardarYSiguiente() {
   const t = trabajadores[indiceActual];
   if (!t) return;
 
-  // Si está bloqueado, avanzar directamente
   if (t.condicion === "bloqueado") {
     avanzarSiguiente();
     return;
@@ -871,28 +1153,44 @@ function guardarYSiguiente() {
 
   const valOk  = validarCampoValoracion(true);
   const evalOk = validarCampoEvaluador(true);
-
   if (!valOk || !evalOk) return;
 
-  // Guardar en memoria
+  // Guardar snapshot en pila de deshacer
+  historialDeshacer.push({
+    idx: indiceActual,
+    snapshot: { ...t }
+  });
+  if (historialDeshacer.length > 30) historialDeshacer.shift();
+
   const num = parsearNumero(inputValoracion.value.trim());
-  t.valoracionOriginal          = inputValoracion.value.trim().replace(",", ".");
-  t.valoracionNumerica          = num;
-  t.cedulaEvaluadorOriginal     = inputEvaluador.value.trim();
-  t.cedulaEvaluadorNormalizada  = normalizarCedula(inputEvaluador.value);
-  t.estado                      = "valido";
-  t.errores                     = [];
+  ultimaValoracion                  = inputValoracion.value.trim().replace(",", ".");
+  t.valoracionOriginal              = ultimaValoracion;
+  t.valoracionNumerica              = num;
+  t.cedulaEvaluadorOriginal         = inputEvaluador.value.trim();
+  t.cedulaEvaluadorNormalizada      = normalizarCedula(inputEvaluador.value);
+  t.estado                          = "valido";
+  t.errores                         = [];
 
-  // Actualizar evaluador persistente
   evaluadorActual = t.cedulaEvaluadorOriginal;
+  registrarEvaluadorFrecuente(evaluadorActual);
 
+  chipRepeat.disabled = false;
   avanzarSiguiente();
+}
+
+function deshacerUltimaAccion() {
+  if (historialDeshacer.length === 0) return;
+  const { idx, snapshot } = historialDeshacer.pop();
+  Object.assign(trabajadores[idx], snapshot);
+  indiceActual = idx;
+  cargarTrabajador(indiceActual);
+  limpiarZona(zonaAlertasPaso2);
+  zonaAlertasPaso2.appendChild(crearAlerta("aviso", "↩️", "Última valoración deshecha. Puede corregirla."));
 }
 
 function avanzarSiguiente() {
   const siguiente = indiceActual + 1;
   if (siguiente >= trabajadores.length) {
-    // Verificar si hay pendientes
     const pendientes = trabajadores.filter(w => w.estado === "pendiente").length;
     if (pendientes > 0) {
       limpiarZona(zonaAlertasPaso2);
@@ -917,16 +1215,43 @@ function avanzarAnterior() {
   }
 }
 
-/* --- Botones Paso 2 --------------------------------------- */
+/* --- Evaluadores frecuentes --- */
+function registrarEvaluadorFrecuente(ced) {
+  if (!ced) return;
+  evaluadoresFrecuentes = [ced, ...evaluadoresFrecuentes.filter(e => e !== ced)].slice(0, 3);
+}
+
+function actualizarEvaluadoresFrecuentes() {
+  if (evaluadoresFrecuentes.length === 0) {
+    zonaEvalFrecuentes.style.display = "none";
+    return;
+  }
+  zonaEvalFrecuentes.style.display = "";
+  listaEvalFrecuentes.replaceChildren();
+  evaluadoresFrecuentes.forEach(ev => {
+    const btn = document.createElement("button");
+    btn.className = "chip-eval";
+    btn.type = "button";
+    btn.textContent = ev;
+    btn.title = `Usar evaluador: ${ev}`;
+    btn.addEventListener("click", () => {
+      inputEvaluador.value = ev;
+      validarCampoEvaluador(false);
+    });
+    listaEvalFrecuentes.appendChild(btn);
+  });
+}
+
+/* --- Botones paso 2 ficha --- */
 btnGuardarSig.addEventListener("click", guardarYSiguiente);
 btnAnterior.addEventListener("click",   avanzarAnterior);
 
 btnOmitir.addEventListener("click", () => {
   const t = trabajadores[indiceActual];
   if (t) {
-    t.estado   = "omitido";
-    t.omitido  = true;
-    t.errores  = ["Omitido por la usuaria en esta sesión."];
+    t.estado  = "omitido";
+    t.omitido = true;
+    t.errores = ["Omitido por el evaluador en esta sesión."];
   }
   avanzarSiguiente();
 });
@@ -952,12 +1277,329 @@ btnDescartarEval.addEventListener("click", () => {
   );
 });
 
+/* --- Ir al siguiente pendiente --- */
+btnIrPendiente.addEventListener("click", () => {
+  const idx = trabajadores.findIndex(t => t.estado === "pendiente");
+  if (idx === -1) {
+    alert("No hay trabajadores pendientes por evaluar.");
+    return;
+  }
+  if (modoVista === "ficha") {
+    cargarTrabajador(idx);
+    inputValoracion.focus();
+  } else {
+    const fila = document.querySelector(`[data-planilla-idx="${idx}"]`);
+    if (fila) {
+      fila.scrollIntoView({ behavior: "smooth", block: "center" });
+      const inp = fila.querySelector(".planilla-input");
+      if (inp) inp.focus();
+    }
+  }
+});
+
 /* ============================================================
-   12. ATAJOS DE TECLADO — PASO 2
+   15. MODO PLANILLA RÁPIDA
+   ============================================================ */
+function renderizarPlanilla() {
+  cuerpoTablaPlanilla.replaceChildren();
+
+  // Sincronizar evaluador
+  inputEvaluadorPlanilla.value = evaluadorActual;
+
+  trabajadores.forEach((t, idx) => {
+    if (t.condicion === "bloqueado") {
+      const tr = crearFilaPlanilla(t, idx, true);
+      cuerpoTablaPlanilla.appendChild(tr);
+      return;
+    }
+    const tr = crearFilaPlanilla(t, idx, false);
+    cuerpoTablaPlanilla.appendChild(tr);
+  });
+
+  actualizarProgreso();
+}
+
+function crearFilaPlanilla(t, idx, bloqueado) {
+  const regla = REGLAS_VALORACION[t.condicion] || REGLAS_VALORACION.normal;
+  const tr = document.createElement("tr");
+  tr.dataset.planillaIdx = idx;
+
+  // Clase de estado
+  if (t.estado === "valido") tr.classList.add("fila-ok");
+  if (t.condicion === "bloqueado") tr.classList.add("fila-error-val");
+
+  // # fila
+  const tdNum = document.createElement("td");
+  tdNum.textContent = idx + 1;
+  tr.appendChild(tdNum);
+
+  // Cédula
+  const tdCed = document.createElement("td");
+  tdCed.textContent = t.cedulaOriginal;
+  tr.appendChild(tdCed);
+
+  // Nombre
+  const tdNom = document.createElement("td");
+  tdNom.textContent = t.nombreCompleto || "—";
+  tdNom.style.color = "var(--txt-muted)";
+  tdNom.style.fontSize = ".8rem";
+  tr.appendChild(tdNom);
+
+  // Condición badge
+  const tdCond = document.createElement("td");
+  const mapaBadge = {
+    normal: "badge-normal", reposo: "badge-reposo",
+    asignacion_especial: "badge-especial", bloqueado: "badge-bloqueado"
+  };
+  const badge = document.createElement("span");
+  badge.className = `badge ${mapaBadge[t.condicion] || "badge-normal"}`;
+  badge.textContent = regla.etiqueta;
+  tdCond.appendChild(badge);
+  tr.appendChild(tdCond);
+
+  // Rango
+  const tdRango = document.createElement("td");
+  tdRango.textContent = regla.rangoTexto;
+  tdRango.style.fontSize = ".78rem";
+  tdRango.style.color = "var(--txt-muted)";
+  tr.appendChild(tdRango);
+
+  // Input de valoración
+  const tdVal = document.createElement("td");
+  if (bloqueado) {
+    const spanB = document.createElement("span");
+    spanB.textContent = "🚫";
+    spanB.style.color = "var(--red)";
+    tdVal.appendChild(spanB);
+  } else {
+    const inp = document.createElement("input");
+    inp.type = "text";
+    inp.className = "planilla-input";
+    inp.value = t.valoracionOriginal || "";
+    inp.placeholder = `${regla.minimo}–${regla.maximo}`;
+    inp.autocomplete = "off";
+    inp.inputMode = "decimal";
+    inp.setAttribute("aria-label", `Valoración para ${t.cedulaOriginal}`);
+    inp.dataset.planillaIdx = idx;
+
+    // Clase inicial si ya tiene valor
+    if (t.estado === "valido") inp.classList.add("ok");
+
+    inp.addEventListener("input", () => {
+      const num = parsearNumero(inp.value.trim());
+      if (!inp.value.trim()) {
+        inp.classList.remove("ok", "err");
+        tr.classList.remove("fila-ok", "fila-error-val");
+      } else if (isNaN(num) || num < regla.minimo || num > regla.maximo) {
+        inp.classList.remove("ok");
+        inp.classList.add("err");
+        tr.classList.remove("fila-ok");
+        tr.classList.add("fila-error-val");
+      } else {
+        inp.classList.remove("err");
+        inp.classList.add("ok");
+        tr.classList.remove("fila-error-val");
+        tr.classList.add("fila-ok");
+      }
+    });
+
+    // Navegación por teclado en planilla
+    inp.addEventListener("keydown", e => {
+      if (e.key === "Enter" || e.key === "ArrowDown") {
+        e.preventDefault();
+        irASiguienteFilaPlanilla(idx);
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        irAFilaPlanillaAnterior(idx);
+      }
+    });
+
+    tdVal.appendChild(inp);
+  }
+  tr.appendChild(tdVal);
+
+  // Estado
+  const tdEstado = document.createElement("td");
+  const mapaEstado = {
+    pendiente: "badge-pendiente", valido: "badge-valido",
+    error: "badge-error", omitido: "badge-omitido", bloqueado: "badge-bloqueado"
+  };
+  const badgeEst = document.createElement("span");
+  badgeEst.className = `badge ${mapaEstado[t.estado] || "badge-pendiente"}`;
+  badgeEst.textContent = t.estado;
+  badgeEst.dataset.estadoBadgeIdx = idx;
+  tdEstado.appendChild(badgeEst);
+  tr.appendChild(tdEstado);
+
+  return tr;
+}
+
+function irASiguienteFilaPlanilla(idxActual) {
+  for (let i = idxActual + 1; i < trabajadores.length; i++) {
+    if (trabajadores[i].condicion !== "bloqueado") {
+      const siguienteFila = document.querySelector(`[data-planilla-idx="${i}"] .planilla-input`);
+      if (siguienteFila) { siguienteFila.focus(); return; }
+    }
+  }
+}
+
+function irAFilaPlanillaAnterior(idxActual) {
+  for (let i = idxActual - 1; i >= 0; i--) {
+    if (trabajadores[i].condicion !== "bloqueado") {
+      const filaAnterior = document.querySelector(`[data-planilla-idx="${i}"] .planilla-input`);
+      if (filaAnterior) { filaAnterior.focus(); return; }
+    }
+  }
+}
+
+btnGuardarPlanilla.addEventListener("click", () => {
+  const evPlanilla = normalizarCedula(inputEvaluadorPlanilla.value);
+  if (!evPlanilla || !esFormatoValido(evPlanilla)) {
+    errorEvaluadorPlanilla.textContent = "Debe indicar la cédula del evaluador global antes de guardar.";
+    errorEvaluadorPlanilla.classList.add("visible");
+    inputEvaluadorPlanilla.focus();
+    return;
+  }
+  errorEvaluadorPlanilla.classList.remove("visible");
+
+  let guardados = 0;
+  let errores   = 0;
+
+  document.querySelectorAll(".planilla-input").forEach(inp => {
+    const idx = parseInt(inp.dataset.planillaIdx, 10);
+    const t = trabajadores[idx];
+    if (!t || t.condicion === "bloqueado") return;
+
+    const valStr = inp.value.trim();
+    if (!valStr) return;
+
+    const regla = REGLAS_VALORACION[t.condicion] || REGLAS_VALORACION.normal;
+    const num = parsearNumero(valStr);
+
+    if (isNaN(num) || num < regla.minimo || num > regla.maximo) {
+      errores++;
+      return;
+    }
+
+    t.valoracionOriginal         = valStr.replace(",", ".");
+    t.valoracionNumerica         = num;
+    t.cedulaEvaluadorOriginal    = inputEvaluadorPlanilla.value.trim();
+    t.cedulaEvaluadorNormalizada = evPlanilla;
+    t.estado                     = "valido";
+    t.errores                    = [];
+    guardados++;
+  });
+
+  evaluadorActual = inputEvaluadorPlanilla.value.trim();
+  registrarEvaluadorFrecuente(evaluadorActual);
+
+  limpiarZona(zonaAlertasPaso2);
+  if (errores > 0) {
+    zonaAlertasPaso2.appendChild(
+      crearAlerta("aviso", "⚠️", `${errores} fila${errores !== 1 ? "s" : ""} con valores fuera de rango no fueron guardadas.`)
+    );
+  }
+  if (guardados > 0) {
+    zonaAlertasPaso2.appendChild(
+      crearAlerta("exito", "✅", `${guardados} valoración${guardados !== 1 ? "es" : ""} guardada${guardados !== 1 ? "s" : ""} correctamente.`)
+    );
+  }
+
+  renderizarPlanilla();
+  actualizarProgreso();
+});
+
+/* ============================================================
+   16. BUSCADOR DE TRABAJADORES — PASO 2
+   ============================================================ */
+inputBuscador.addEventListener("input", () => {
+  const q = inputBuscador.value.trim().toLowerCase();
+  if (!q || !sesionActiva) {
+    buscadorResultados.style.display = "none";
+    return;
+  }
+
+  const resultados = trabajadores
+    .map((t, idx) => ({ t, idx }))
+    .filter(({ t }) =>
+      t.cedulaOriginal.toLowerCase().includes(q) ||
+      t.cedulaNormalizada.includes(normalizarCedula(q)) ||
+      (t.nombreCompleto && t.nombreCompleto.toLowerCase().includes(q))
+    )
+    .slice(0, 8);
+
+  if (resultados.length === 0) {
+    buscadorResultados.style.display = "none";
+    return;
+  }
+
+  buscadorResultados.replaceChildren();
+  resultados.forEach(({ t, idx }) => {
+    const div = document.createElement("div");
+    div.className = "buscador-item";
+    div.setAttribute("role", "option");
+    div.tabIndex = 0;
+
+    const ced = document.createElement("span");
+    ced.className = "buscador-item-ced";
+    ced.textContent = t.cedulaOriginal;
+
+    const nom = document.createElement("span");
+    nom.className = "buscador-item-nom";
+    nom.textContent = t.nombreCompleto ? ` · ${t.nombreCompleto}` : "";
+
+    const cond = document.createElement("span");
+    cond.className = `badge ${idx === indiceActual ? "badge-valido" : "badge-pendiente"}`;
+    cond.style.cssText = "float:right; font-size:.68rem;";
+    cond.textContent = `#${idx + 1} · ${t.estado}`;
+
+    div.appendChild(ced);
+    div.appendChild(nom);
+    div.appendChild(cond);
+
+    const irA = () => {
+      buscadorResultados.style.display = "none";
+      inputBuscador.value = "";
+      if (modoVista === "ficha") {
+        cargarTrabajador(idx);
+        inputValoracion.focus();
+      } else {
+        const fila = document.querySelector(`[data-planilla-idx="${idx}"] .planilla-input`);
+        if (fila) { fila.scrollIntoView({ behavior: "smooth", block: "center" }); fila.focus(); }
+      }
+    };
+
+    div.addEventListener("click", irA);
+    div.addEventListener("keydown", e => {
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); irA(); }
+    });
+
+    buscadorResultados.appendChild(div);
+  });
+
+  buscadorResultados.style.display = "block";
+});
+
+// Cerrar buscador al hacer clic fuera
+document.addEventListener("click", e => {
+  if (!inputBuscador.contains(e.target) && !buscadorResultados.contains(e.target)) {
+    buscadorResultados.style.display = "none";
+  }
+});
+
+/* ============================================================
+   17. ATAJOS DE TECLADO — PASO 2
    ============================================================ */
 document.addEventListener("keydown", e => {
-  // Solo activos en pantalla 2
   if (!pantalla2.classList.contains("activa")) return;
+  if (modoVista !== "ficha") return;
+
+  // Ctrl+Z: Deshacer
+  if ((e.ctrlKey || e.metaKey) && e.key === "z" && !e.shiftKey) {
+    e.preventDefault();
+    deshacerUltimaAccion();
+    return;
+  }
 
   if (e.key === "Escape") {
     e.preventDefault();
@@ -979,7 +1621,6 @@ document.addEventListener("keydown", e => {
     return;
   }
 
-  // Enter desde el campo evaluador o Ctrl+Enter desde valoración
   const desdeValoracion = document.activeElement === inputValoracion;
   const desdeEvaluador  = document.activeElement === inputEvaluador;
 
@@ -992,7 +1633,7 @@ document.addEventListener("keydown", e => {
 });
 
 /* ============================================================
-   13. EXPORTACIÓN — PASO 3
+   18. EXPORTACIÓN — PASO 3
    ============================================================ */
 function abrirPantallaExportacion() {
   mostrarPantalla(3);
@@ -1000,70 +1641,110 @@ function abrirPantallaExportacion() {
 }
 
 function generarExportacion() {
-  const validos = trabajadores.filter(t => t.estado === "valido");
+  const validos  = trabajadores.filter(t => t.estado === "valido");
   const noValidos = trabajadores.filter(t => t.estado !== "valido");
 
-  // Verificar alineación
   const nCed = validos.length;
-  const nVal = validos.length;
-  const nEval = validos.length;
-  const alineado = nCed === nVal && nVal === nEval;
+  const alineado = nCed > 0;
 
-  // Sección de verificación
   verificAlin.classList.toggle("error-alineacion", !alineado);
 
   if (alineado) {
-    verificTitulo.textContent = `✅ Registros válidos listos para exportar: ${nCed}`;
+    verificTitulo.textContent = `✅ ${nCed} registro${nCed !== 1 ? "s" : ""} válido${nCed !== 1 ? "s" : ""} listos para exportar`;
     verificDetalle.replaceChildren();
-    const items = [
-      `Cédulas de trabajadores: ${nCed} fila${nCed !== 1 ? "s" : ""}.`,
-      `Valoraciones: ${nVal} fila${nVal !== 1 ? "s" : ""}.`,
-      `Cédulas de evaluadores: ${nEval} fila${nEval !== 1 ? "s" : ""}.`,
-      `Los tres listados están alineados y listos para pegarse por separado en Excel.`
-    ];
     const ul = document.createElement("ul");
     ul.style.cssText = "margin:8px 0 0 18px; font-size:.875rem;";
-    items.forEach(txt => {
-      const li = document.createElement("li");
-      li.textContent = txt;
-      ul.appendChild(li);
+    [
+      `Cédulas de trabajadores: ${nCed} fila${nCed !== 1 ? "s" : ""}.`,
+      `Valoraciones: ${nCed} fila${nCed !== 1 ? "s" : ""}.`,
+      `Cédulas de evaluadores: ${nCed} fila${nCed !== 1 ? "s" : ""}.`,
+      "Los tres listados están alineados y listos para pegarse por separado en Excel."
+    ].forEach(txt => {
+      const li = document.createElement("li"); li.textContent = txt; ul.appendChild(li);
     });
     verificDetalle.appendChild(ul);
   } else {
-    verificTitulo.textContent = "❌ Error de alineación";
-    verificDetalle.textContent =
-      "Los tres listados no contienen la misma cantidad de registros. Revise los datos antes de copiar.";
+    verificTitulo.textContent = "❌ No hay registros válidos para exportar";
+    verificDetalle.textContent = "Regrese a evaluar y complete al menos un trabajador.";
   }
 
-  // Generar los tres bloques
-  salidaCedulas.value     = validos.map(t => t.cedulaOriginal).join("\n");
-  salidaValoraciones.value= validos.map(t => t.valoracionOriginal).join("\n");
-  salidaEvaluadores.value = validos.map(t => t.cedulaEvaluadorOriginal).join("\n");
+  salidaCedulas.value      = validos.map(t => t.cedulaOriginal).join("\n");
+  salidaValoraciones.value = validos.map(t => t.valoracionOriginal).join("\n");
+  salidaEvaluadores.value  = validos.map(t => t.cedulaEvaluadorOriginal).join("\n");
 
-  // Habilitar/deshabilitar botones de copiar según alineación
-  btnCopiarCedulas.disabled  = !alineado || nCed === 0;
-  btnCopiarVals.disabled     = !alineado || nVal === 0;
-  btnCopiarEvals.disabled    = !alineado || nEval === 0;
+  btnCopiarCedulas.disabled = !alineado;
+  btnCopiarVals.disabled    = !alineado;
+  btnCopiarEvals.disabled   = !alineado;
+  btnCopiarTsv.disabled     = !alineado;
 
-  // Tabla de incidencias
+  generarPreview(validos);
   generarTablaIncidencias(noValidos);
+}
+
+function generarPreview(validos) {
+  cuerpoPreview.replaceChildren();
+
+  if (validos.length === 0) {
+    const tr = document.createElement("tr");
+    const td = document.createElement("td");
+    td.colSpan = 3;
+    td.textContent = "Sin registros válidos.";
+    td.style.textAlign = "center";
+    td.style.color = "var(--txt-muted)";
+    td.style.padding = "12px";
+    tr.appendChild(td);
+    cuerpoPreview.appendChild(tr);
+    return;
+  }
+
+  const mostrar = [];
+  const PREV = 3;
+
+  if (validos.length <= PREV * 2) {
+    validos.forEach(t => mostrar.push({ t, sep: false }));
+  } else {
+    validos.slice(0, PREV).forEach(t => mostrar.push({ t, sep: false }));
+    mostrar.push({ sep: true });
+    validos.slice(-PREV).forEach(t => mostrar.push({ t, sep: false }));
+  }
+
+  mostrar.forEach(item => {
+    const tr = document.createElement("tr");
+    if (item.sep) {
+      tr.className = "preview-sep";
+      const td = document.createElement("td");
+      td.colSpan = 3;
+      td.textContent = `··· ${validos.length - PREV * 2} fila${validos.length - PREV * 2 !== 1 ? "s" : ""} omitidas en la vista previa ···`;
+      tr.appendChild(td);
+    } else {
+      [item.t.cedulaOriginal, item.t.valoracionOriginal, item.t.cedulaEvaluadorOriginal].forEach(v => {
+        const td = document.createElement("td");
+        td.textContent = v;
+        tr.appendChild(td);
+      });
+    }
+    cuerpoPreview.appendChild(tr);
+  });
 }
 
 function generarTablaIncidencias(registros) {
   cuerpoTablaRep.replaceChildren();
-
   if (registros.length === 0) {
     reporteVacio.style.display = "block";
     btnCopiarReporte.disabled = true;
     return;
   }
-
   reporteVacio.style.display = "none";
   btnCopiarReporte.disabled = false;
 
+  const mapaEstadoBadge = {
+    pendiente: "badge-pendiente", valido: "badge-valido",
+    error: "badge-error", omitido: "badge-omitido",
+    bloqueado: "badge-bloqueado", duplicado: "badge-error"
+  };
+
   registros.forEach(t => {
     const tr = document.createElement("tr");
-
     const celdas = [
       t.numeroFilaOriginal ?? "—",
       t.cedulaOriginal || "(vacía)",
@@ -1073,18 +1754,9 @@ function generarTablaIncidencias(registros) {
       t.errores.join(" / ") || t.advertencias.join(" / ") || "—"
     ];
 
-    const mapaEstadoBadge = {
-      pendiente: "badge-pendiente",
-      valido:    "badge-valido",
-      error:     "badge-error",
-      omitido:   "badge-omitido",
-      bloqueado: "badge-bloqueado",
-      duplicado: "badge-error"
-    };
-
     celdas.forEach((val, i) => {
       const td = document.createElement("td");
-      if (i === 4) {  // índice 4 = estado (tras añadir nombre en posición 2)
+      if (i === 4) {
         const badge = document.createElement("span");
         badge.className = `badge ${mapaEstadoBadge[val] || "badge-pendiente"}`;
         badge.textContent = val;
@@ -1099,15 +1771,12 @@ function generarTablaIncidencias(registros) {
   });
 }
 
-/* --- Botones de Copiar ------------------------------------ */
+/* --- Botones de Copiar --- */
 function copiarBloque(texto, msgEl) {
   if (!texto.trim()) return;
   copiarAlPortapapeles(texto)
     .then(() => mostrarMsgCopiado(msgEl))
-    .catch(() => {
-      // Si falla el portapapeles, seleccionar el texto para que el usuario copie manualmente
-      alert("No se pudo copiar automáticamente. Seleccione el texto y use Ctrl+C.");
-    });
+    .catch(() => alert("No se pudo copiar automáticamente. Seleccione el texto y use Ctrl+C."));
 }
 
 btnCopiarCedulas.addEventListener("click", () =>
@@ -1120,13 +1789,13 @@ btnCopiarEvals.addEventListener("click", () =>
   copiarBloque(salidaEvaluadores.value, msgEvaluadores));
 
 btnCopiarReporte.addEventListener("click", () => {
-  // Generar reporte en texto plano para copiar
   const noValidos = trabajadores.filter(t => t.estado !== "valido");
-  const lineas = ["Fila\tCédula\tCondición\tEstado\tDetalle"];
+  const lineas = ["Fila\tCédula\tNombre\tCondición\tEstado\tDetalle"];
   noValidos.forEach(t => {
     lineas.push([
       t.numeroFilaOriginal ?? "",
       t.cedulaOriginal || "",
+      t.nombreCompleto  || "",
       REGLAS_VALORACION[t.condicion]?.etiqueta || "",
       t.estado,
       (t.errores.join(" / ") || t.advertencias.join(" / ") || "")
@@ -1135,48 +1804,137 @@ btnCopiarReporte.addEventListener("click", () => {
   copiarBloque(lineas.join("\n"), msgReporte);
 });
 
-/* --- Volver a evaluar pendientes -------------------------- */
-btnVolverEval.addEventListener("click", () => {
-  // Buscar primer pendiente
-  const idx = trabajadores.findIndex(t => t.estado === "pendiente");
-  if (idx === -1) {
-    alert("No hay trabajadores pendientes por evaluar.");
-    return;
-  }
-  indiceActual = idx;
-  mostrarPantalla(2);
-  cargarTrabajador(indiceActual);
+// Copiar tabla completa (3 columnas, TSV)
+btnCopiarTsv.addEventListener("click", () => {
+  const validos = trabajadores.filter(t => t.estado === "valido");
+  if (validos.length === 0) return;
+  const lineas = validos.map(t =>
+    `${t.cedulaOriginal}\t${t.valoracionOriginal}\t${t.cedulaEvaluadorOriginal}`
+  );
+  copiarBloque(lineas.join("\n"), msgTsv);
 });
 
-/* --- Nueva sesión y Descartar ----------------------------- */
+/* --- Volver a evaluar pendientes --- */
+btnVolverEval.addEventListener("click", () => {
+  const idx = trabajadores.findIndex(t => t.estado === "pendiente");
+  if (idx === -1) { alert("No hay trabajadores pendientes por evaluar."); return; }
+  indiceActual = idx;
+  mostrarPantalla(2);
+  if (modoVista === "planilla") {
+    renderizarPlanilla();
+  } else {
+    cargarTrabajador(indiceActual);
+  }
+});
+
+/* --- Nueva sesión / Descartar --- */
 btnNuevaSesion.addEventListener("click", () => {
-  abrirModal(
-    "Iniciar nueva sesión",
-    "Se eliminarán todos los datos de la sesión actual. ¿Desea continuar?",
-    descartarSesion
-  );
+  abrirModal("Iniciar nueva sesión", "Se eliminarán todos los datos de la sesión actual. ¿Desea continuar?", descartarSesion);
 });
 
 btnDescartarFinal.addEventListener("click", () => {
-  abrirModal(
-    "Limpiar y descartar sesión",
-    "Se eliminarán todos los datos de la sesión actual. Esta acción no se puede deshacer. ¿Continuar?",
-    descartarSesion
-  );
+  abrirModal("Limpiar y descartar sesión", "Se eliminarán todos los datos de la sesión actual. Esta acción no se puede deshacer. ¿Continuar?", descartarSesion);
 });
 
 /* ============================================================
-   14. DESCARTAR SESIÓN — Limpieza completa
+   19. GUARDAR / CARGAR BORRADOR LOCAL (.json)
+   ============================================================ */
+btnGuardarBorrador.addEventListener("click", () => {
+  if (trabajadores.length === 0) {
+    alert("No hay datos en la sesión actual para guardar.");
+    return;
+  }
+
+  const borrador = {
+    version: "2.0",
+    fechaGuardado: new Date().toISOString(),
+    evaluadorActual,
+    ultimaValoracion,
+    evaluadoresFrecuentes,
+    trabajadores
+  };
+
+  const blob = new Blob([JSON.stringify(borrador, null, 2)], { type: "application/json" });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement("a");
+  a.href     = url;
+  a.download = `borrador-valoraciones-${new Date().toISOString().slice(0, 10)}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+});
+
+inputCargarBorrador.addEventListener("change", e => {
+  const archivo = e.target.files && e.target.files[0];
+  if (!archivo) return;
+
+  const lector = new FileReader();
+  lector.onload = evento => {
+    try {
+      const datos = JSON.parse(evento.target.result);
+
+      if (!datos.trabajadores || !Array.isArray(datos.trabajadores)) {
+        alert("El archivo no tiene el formato esperado de borrador.");
+        return;
+      }
+
+      // Confirmar si hay sesión activa
+      if (sesionActiva && trabajadores.length > 0) {
+        if (!confirm("Hay una sesión activa. Al cargar el borrador se perderán los datos actuales. ¿Continuar?")) {
+          inputCargarBorrador.value = "";
+          return;
+        }
+      }
+
+      trabajadores         = datos.trabajadores;
+      evaluadorActual      = datos.evaluadorActual || "";
+      ultimaValoracion     = datos.ultimaValoracion || null;
+      evaluadoresFrecuentes = datos.evaluadoresFrecuentes || [];
+      sesionActiva         = true;
+      historialDeshacer    = [];
+      duplicadosDetectados = [];
+
+      // Restaurar pantalla según estado del borrador
+      const pendientes = trabajadores.filter(t => t.estado === "pendiente").length;
+      const validos    = trabajadores.filter(t => t.estado === "valido").length;
+
+      if (pendientes === 0 && validos > 0) {
+        abrirPantallaExportacion();
+      } else {
+        indiceActual = trabajadores.findIndex(t => t.estado === "pendiente");
+        if (indiceActual === -1) indiceActual = 0;
+        mostrarPantalla(2);
+        if (modoVista === "planilla") {
+          renderizarPlanilla();
+        } else {
+          cargarTrabajador(indiceActual);
+        }
+      }
+
+      alert(`✅ Borrador cargado correctamente. ${trabajadores.length} trabajadores restaurados.`);
+
+    } catch {
+      alert("Error al leer el archivo. Asegúrese de que sea un borrador válido generado por esta herramienta.");
+    }
+    inputCargarBorrador.value = "";
+  };
+  lector.readAsText(archivo);
+});
+
+/* ============================================================
+   20. DESCARTAR SESIÓN — Limpieza completa
    ============================================================ */
 function descartarSesion() {
-  // Limpiar estado
-  trabajadores    = [];
-  indiceActual    = 0;
-  evaluadorActual = "";
-  sesionActiva    = false;
-  duplicadosDetectados = [];
+  trabajadores          = [];
+  indiceActual          = 0;
+  evaluadorActual       = "";
+  sesionActiva          = false;
+  ultimaValoracion      = null;
+  historialDeshacer     = [];
+  evaluadoresFrecuentes = [];
+  duplicadosDetectados  = [];
 
-  // Limpiar entradas
   areaTrabajadores.value = "";
   areaBloqueados.value   = "";
   areaReposo.value       = "";
@@ -1186,12 +1944,10 @@ function descartarSesion() {
   contadorRep.textContent   = "0 cédulas";
   contadorEsp.textContent   = "0 cédulas";
 
-  // Limpiar salidas
   salidaCedulas.value      = "";
   salidaValoraciones.value = "";
   salidaEvaluadores.value  = "";
 
-  // Limpiar zonas
   limpiarZona(zonaAlertasPaso1);
   limpiarZona(zonaAlertasPaso2);
   zonaDuplicados.classList.add("d-none");
@@ -1200,17 +1956,24 @@ function descartarSesion() {
   zonaOrdenamiento.style.display = "none";
   alertaOrdenamiento.style.display = "none";
   btnOrdenarOrig.disabled = true;
-  btnOrdenarAZ.style.fontWeight = "";
-  btnOrdenarZA.style.fontWeight = "";
+  btnOrdenarAZ.classList.remove("btn-orden-activo");
+  btnOrdenarZA.classList.remove("btn-orden-activo");
   cuerpoTablaRep.replaceChildren();
+  cuerpoTablaPlanilla.replaceChildren();
+  cuerpoPreview.replaceChildren();
 
-  // Volver al inicio
+  msgCedulas.classList.remove("visible");
+  msgValores.classList.remove("visible");
+  msgEvaluadores.classList.remove("visible");
+  msgReporte.classList.remove("visible");
+  msgTsv.classList.remove("visible");
+
   mostrarPantalla(1);
   cerrarModal();
 }
 
 /* ============================================================
-   15. MODAL DE CONFIRMACIÓN
+   21. MODAL DE CONFIRMACIÓN
    ============================================================ */
 let accionModal = null;
 
@@ -1232,11 +1995,9 @@ modalBtnConfirmar.addEventListener("click", () => {
   if (typeof accionModal === "function") accionModal();
   cerrarModal();
 });
-
 modalOverlay.addEventListener("click", e => {
   if (e.target === modalOverlay) cerrarModal();
 });
-
 document.addEventListener("keydown", e => {
   if (e.key === "Escape" && modalOverlay.classList.contains("visible")) {
     cerrarModal();
@@ -1244,7 +2005,7 @@ document.addEventListener("keydown", e => {
 });
 
 /* ============================================================
-   16. PROTECCIÓN CONTRA CIERRE ACCIDENTAL
+   22. PROTECCIÓN CONTRA CIERRE ACCIDENTAL
    ============================================================ */
 window.addEventListener("beforeunload", e => {
   if (sesionActiva && trabajadores.length > 0) {
@@ -1254,6 +2015,6 @@ window.addEventListener("beforeunload", e => {
 });
 
 /* ============================================================
-   17. INICIALIZACIÓN
+   23. INICIALIZACIÓN
    ============================================================ */
 mostrarPantalla(1);

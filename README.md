@@ -8,11 +8,20 @@ a servidores externos.
 
 ## ¿Qué hace esta herramienta?
 
-1. **Carga masiva** de cédulas copiadas desde Excel (soporta cédula sola o acompañada de 1 o varios nombres y apellidos, ej: `miguel manuel felipe 37096753` o `37096753 Miguel Manuel Felipe`).
-2. **Ordenamiento alfabético inteligente** (A→Z, Z→A o restablecer orden original) para agilizar la identificación del trabajador.
-3. **Clasificación automática** por condición (Normal, Reposo, Asignación Especial, Bloqueado) con reglas de prioridad.
-4. **Evaluación individual** con visualización clara de nombre/cédula, validación en tiempo real y evaluador persistente.
-5. **Exportación en tres bloques independientes** para pegar en columnas separadas del Excel protegido.
+1. **Carga masiva inteligente** de cédulas copiadas desde Excel (soporta cédula sola, `Cédula Nombre` o `Nombre Cédula` con separadores de tabulación o espacios, limpiando automáticamente caracteres especiales de Excel).
+2. **Listas independientes de condiciones especiales** (Bloqueados, Reposo, Asignación Especial) con conteo en vivo.
+3. **Ordenamiento alfabético** (A→Z, Z→A o restablecer orden original) para agilizar la identificación del trabajador.
+4. **Modo dual de evaluación**:
+   - **Modo Ficha (1 a 1)**: Visualización enfocada con chips de notas rápidas (`100` a `500`, `Máx`, `Repetir anterior`), evaluadores frecuentes y atajo `Ctrl+Z` para deshacer.
+   - **Modo Planilla rápida**: Tabla interactiva tipo hoja de cálculo para digitar valores rápidamente navegando con `Enter` o flechas `↑`/`↓`.
+5. **Buscador interactivo**: Localice y salte inmediatamente a cualquier trabajador por cédula o nombre sin avanzar uno por uno.
+6. **Tema Claro / Oscuro**: Interruptor en cabecera (☀️ / 🌙) para reducir la fatiga visual en jornadas prolongadas.
+7. **Resguardo local seguro (.json)**: Posibilidad de guardar y cargar borradores de sesión en archivos locales sin violar la privacidad ni usar almacenamiento en servidor.
+8. **Exportación verificada**:
+   - 3 bloques independientes para columnas separadas del Excel protegido.
+   - Previsualización sincronizada de 3 columnas (primeras y últimas filas lado a lado).
+   - Bloque único consolidado (TSV) para pegar todo de una sola vez si el Excel lo permite.
+   - Checklist visual de copiado (`✔ Copiado`).
 
 ---
 
@@ -30,24 +39,30 @@ a servidores externos.
 5. Presione **Iniciar evaluación**.
 
 ### Paso 2 — Evaluar trabajadores
-1. Ingrese la valoración numérica en el campo correspondiente.
-2. Ingrese la cédula del evaluador (se mantiene automáticamente entre trabajadores).
-3. Presione **Guardar y siguiente** o use `Enter` para avanzar.
+- **En Modo Ficha (1 a 1)**:
+  1. Ingrese la valoración numérica o use los chips rápidos: `[100]`, `[200]`, `[300]`, `[400]`, `[500]`, `[Máx]` o `[↩ Repetir]`.
+  2. Ingrese la cédula del evaluador (se mantiene automáticamente y se guarda en evaluadores recientes).
+  3. Presione **Guardar y siguiente** o use `Enter` para avanzar.
+- **En Modo Planilla rápida**:
+  1. Escriba la valoración directamente en la celda y pulse `Enter` o `↓` para bajar al siguiente trabajador.
+  2. Ingrese el evaluador global y pulse **Guardar todos los válidos de la planilla**.
 
 **Atajos de teclado:**
 
 | Atajo | Acción |
 |---|---|
 | `Enter` | Guardar y avanzar al siguiente |
-| `Ctrl+Enter` | Guardar desde el campo de valoración |
+| `Ctrl + Z` | Deshacer última valoración guardada |
 | `Alt + →` | Siguiente trabajador |
 | `Alt + ←` | Trabajador anterior |
 | `Esc` | Limpiar campo de valoración |
+| `↓` / `↑` (en planilla) | Moverse entre filas de la tabla |
 
 ### Paso 3 — Exportar
-1. Verifique el resumen de alineación.
-2. Copie cada bloque por separado y péguelo en la columna correspondiente del Excel protegido.
-3. **Pegue siempre comenzando en la misma fila en Excel.**
+1. Verifique el resumen de alineación y la previsualización de 3 columnas.
+2. Copie cada bloque por separado (`Cédulas`, `Valoraciones`, `Evaluadores`) y péguelo en la columna correspondiente del Excel protegido.
+3. **Pegue siempre comenzando en la misma fila inicial en Excel.**
+4. Opcionalmente, copie la tabla completa en formato TSV.
 
 ---
 
@@ -55,38 +70,15 @@ a servidores externos.
 
 > ⚠️ Esta herramienta **no transmite ningún dato** a servidores externos.
 > Toda la información se procesa únicamente en la memoria RAM de su navegador
-> y desaparece al recargar o cerrar la página.
+> y no se almacena en bases de datos ni servicios externos.
 
 La aplicación **no contiene ni utilizará:**
-- Backend, API ni base de datos.
-- `fetch`, `XMLHttpRequest`, ni WebSockets.
-- `localStorage`, `sessionStorage` ni IndexedDB.
-- Cookies de sesión ni analítica.
+- Backend, API ni bases de datos remotas.
+- `fetch`, `XMLHttpRequest`, ni WebSockets hacia servidores externos.
+- `localStorage`, `sessionStorage` ni cookies de rastreo.
 - Librerías externas cargadas desde CDN.
 
----
-
-## Despliegue en GitHub Pages
-
-1. Cree un repositorio llamado `validador-valoraciones` en su cuenta de GitHub.
-2. Suba los archivos:
-   - `index.html`
-   - `styles.css`
-   - `app.js`
-   - `README.md`
-   - `.gitignore`
-3. En **Settings → Pages**, configure la fuente como la rama `main` y la carpeta raíz (`/`).
-4. Active **HTTPS obligatorio**.
-5. La herramienta quedará disponible en:
-   ```
-   https://USUARIO.github.io/validador-valoraciones/
-   ```
-
-### Verificación post-despliegue (F12 → Red/Network)
-- Cargue la página y espere a que terminen todas las peticiones iniciales.
-- Pegue datos de prueba falsos, valide, evalúe y copie los listados.
-- **No debe aparecer ninguna petición adicional** (cero fetch, xhr, POST, WebSocket).
-- Recargue la página y confirme que no quedan datos visibles.
+El resguardo de borrador funciona 100% en el cliente mediante la API de archivos locales (`Blob` y `FileReader`).
 
 ---
 
@@ -108,23 +100,15 @@ se aplica la condición con mayor prioridad.
 
 ```
 validador-valoraciones/
-├── index.html     # Estructura HTML semántica de las 3 pantallas
-├── styles.css     # Estilos CSS sin dependencias externas
-├── app.js         # Lógica completa en JavaScript puro
+├── index.html     # Estructura HTML con soporte de temas y vistas
+├── styles.css     # Estilos CSS modernos con variables de tema claro/oscuro
+├── app.js         # Lógica completa en JavaScript puro (cliente 100%)
 ├── README.md      # Esta documentación
 └── .gitignore     # Archivos excluidos del repositorio
 ```
 
 ---
 
-## Advertencias Importantes
-
-- **No suba** archivos Excel reales, cédulas reales, ni datos sensibles al repositorio.
-- **No suba** listas reales de bloqueados, en reposo o asignación especial.
-- El repositorio debe contener únicamente el código y documentación no sensible.
-
----
-
 ## Versión
 
-Demo v1.0 — Fase 1 (Procesamiento local, sin persistencia)
+Versión 2.0 — Modo Oscuro, Modo Planilla Rápida, Chips de Entrada Rápida, Resguardo Local y Exportación Verificada.
