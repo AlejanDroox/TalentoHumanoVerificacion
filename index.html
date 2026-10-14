@@ -57,7 +57,7 @@
           Paso 1 de 3 — Cargar trabajadores
         </h2>
         <p class="subtitulo">
-          Copie la lista de cédulas (con o sin nombres) desde Excel y péguela en el área de texto.
+          Copie filas desde Excel (cédula sola, cédula+nombre, o formato completo de 9 columnas con puntuación y evaluador) y péguela en el área de texto.
         </p>
 
         <!-- Lista principal -->
@@ -66,15 +66,18 @@
           <textarea
             id="area-trabajadores"
             class="grande"
-            placeholder="Pegue aquí las cédulas o filas copiadas desde Excel.
-Un registro por fila. Ejemplos:
-12345678
-Juan Pérez   23456789
-34567890   Miguel Manuel Felipe"
+            placeholder="Pegue aquí las filas copiadas desde Excel. Un registro por fila.
+
+Formatos soportados:
+  • Solo cédula:          12345678
+  • Cédula + nombre:      12345678   Juan Pérez
+  • Formato completo (9 cols con TAB):
+    [Cédula][NPersonal][Nombre][Grado][Centro][Estado][Puntuación][Calif.][NEvaluador]
+    Ej: 6.328.281  188465  GUERRA ALEXANDER  M1  CENTRO DESPACHO  TACHIRA  485  Muy Bueno  118094"
             aria-describedby="hint-trabajadores"
           ></textarea>
           <span class="hint" id="hint-trabajadores">
-            Se detecta automáticamente si la cédula viene antes o después del nombre.
+            Se detecta automáticamente el formato. Cuando pegue el formato completo (9 columnas), se extraerán puntuación y evaluador para verificar redundancias y errores de condición.
           </span>
           <span class="contador-filas" id="contador-filas" aria-live="polite">0 filas detectadas</span>
         </div>
@@ -213,6 +216,8 @@ Juan Pérez   23456789
                     <th>Fila #</th>
                     <th>Cédula</th>
                     <th>Nombre</th>
+                    <th>Puntuación</th>
+                    <th>Evaluador</th>
                     <th>Estado</th>
                     <th>Acción</th>
                   </tr>
@@ -291,6 +296,9 @@ Juan Pérez   23456789
 
           <button class="btn btn-exito" id="btn-iniciar-evaluacion">
             <span aria-hidden="true">▶️</span> Iniciar evaluación
+          </button>
+          <button class="btn btn-primario" id="btn-ir-exportar-directo" style="display:none;">
+            <span aria-hidden="true">📤</span> Ver resultados / Exportar
           </button>
         </div>
 

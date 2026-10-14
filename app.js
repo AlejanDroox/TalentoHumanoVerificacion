@@ -247,52 +247,98 @@ function primerColumna(fila) {
 }
 
 /**
- * Extrae cédula y nombre de una fila pegada desde Excel.
- * Soporta: TAB, 2+ espacios, espacio simple (detecta el token numérico).
- * Limpia caracteres basura de Excel.
+ * Extrae cedula, nombre, valoracion y evaluador de una fila pegada desde Excel.
+ * Soporta formato completo de 9 columnas tabuladas:
+ *   [Cedula] [NPersonal] [Nombre] [Grado] [Centro] [Estado] [Puntuacion] [TextoCal] [NEvaluador]
+ * y formatos legados de 1-2 columnas.
  */
 function extraerDatosFila(filaCruda) {
   // Limpiar caracteres basura de Excel (espacios no rompibles, BOM)
   const filaLimpia = filaCruda
-    .replace(/\u00A0/g, " ")
-    .replace(/\uFEFF/g, "")
-    .replace(/[\u2018\u2019\u201C\u201D]/g, "");
+    .replace(/\u00A0/g, ' ')
+    .replace(/\uFEFF/g, '')
+    .replace(/[\u2018\u2019\u201C\u201D]/g, '');
 
   // 1. Separar por TAB (separador nativo de Excel)
-  let cols = filaLimpia.split("\t").map(c => c.trim()).filter(c => c.length > 0);
+  let cols = filaLimpia.split('\t').map(c => c.trim()).filter(c => c.length > 0);
 
-  // 2. Si solo hay una columna, intentar separar por 2+ espacios
+  // 2. Si solo 1 col, intentar por 2+ espacios
   if (cols.length <= 1) {
-    const porEspacios = filaLimpia.split(/\s{2,}/).map(c => c.trim()).filter(c => c.length > 0);
-    if (porEspacios.length > 1) cols = porEspacios;
+    const por2esp = filaLimpia.split(/\s{2,}/).map(c => c.trim()).filter(c => c.length > 0);
+    if (por2esp.length > 1) cols = por2esp;
   }
 
-  // 3. Si sigue siendo un solo valor, intentar separar por espacio simple buscando token numérico
+  // 3. Si sigue 1 col, espacio simple buscando token numerico
   if (cols.length <= 1) {
     const tokens = filaLimpia.trim().split(/\s+/);
     if (tokens.length > 1) {
-      // Buscar el token que parece cédula (5+ dígitos)
-      const esCedTok = t => /\d{5,}/.test(t.replace(/[^0-9]/g, ""));
-      const idxCed = tokens.findIndex(t => esCedTok(t));
+      const esCed = t => /\d{5,}/.test(t.replace(/[^0-9]/g, ''));
+      const idxCed = tokens.findIndex(t => esCed(t));
       if (idxCed !== -1) {
         const ced = tokens[idxCed];
-        const nombre = tokens.filter((_, i) => i !== idxCed).join(" ");
-        return { cedula: ced, nombre: capitalizarNombre(nombre) };
+        const nom = tokens.filter((_, i) => i !== idxCed).join(' ');
+        return { cedula: ced, nombre: capitalizarNombre(nom), valoracion: '', evaluador: '' };
       }
     }
-    // No se encontró nada especial: tratar todo como cédula
-    return { cedula: filaLimpia.trim(), nombre: "" };
+    return { cedula: filaLimpia.trim(), nombre: '', valoracion: '', evaluador: '' };
   }
 
-  // 4. Función: ¿parece esta cadena una cédula? (al menos 5 dígitos)
+  // -- MODO MULTI-COLUMNA (>= 3 cols con TAB) --
+  // Detecta formato Excel: col[0]=Cedula, col[-1]=Evaluador(numerico), col[penultimo]=Puntuacion(100-999)
+  if (cols.length >= 3) {
+    const limpio = v => v.replace(/\./g, '').replace(',', '.');
+    const esPuro = v => /^\d+([.,]\d+)?$/.test(limpio(v));
+
+    const cedula = cols[0];
+
+    // Columna final: evaluador si es puramente numerico
+    let evaluador = '';
+    let idxEval = -1;
+    if (esPuro(cols[cols.length - 1])) {
+      evaluador = cols[cols.length - 1];
+      idxEval   = cols.length - 1;
+    }
+
+    // Buscar puntuacion: numerico 100-999 desde la derecha antes del evaluador
+    let valoracion = '';
+    let idxVal = -1;
+    const limite = idxEval !== -1 ? idxEval : cols.length;
+    for (let i = limite - 1; i >= 1; i--) {
+      const n = parseFloat(limpio(cols[i]));
+      if (!isNaN(n) && n >= 100 && n <= 999 && esPuro(cols[i])) {
+        valoracion = String(n);
+        idxVal = i;
+        break;
+      }
+    }
+
+    // Nombre: columnas internas excluyendo numeros cortos y etiquetas texto de calificacion
+    const excluir = new Set([0, idxVal, idxEval].filter(i => i !== -1));
+    const nombreCols = cols.filter((c, i) => {
+      if (excluir.has(i)) return false;
+      if (/^\d+$/.test(limpio(c)) && limpio(c).length <= 6) return false;
+      if (/^(Muy\s*Bueno|Bueno|Regular|Deficiente|Excelente|MB|B|R|D)$/i.test(c)) return false;
+      return true;
+    });
+    let nombre = '';
+    if (cols.length >= 7 && /[a-zA-ZáéíóúÁÉÍÓÚñÑ]/.test(cols[2])) {
+      nombre = capitalizarNombre(cols[2]);
+    } else {
+      nombre = capitalizarNombre(nombreCols.join(' '));
+    }
+
+    if (valoracion || evaluador) {
+      return { cedula, nombre, valoracion, evaluador };
+    }
+  }
+
+  // -- MODO LEGACY (1-2 cols) --
   const pareceNumerica = val => {
     const norm = normalizarCedula(val);
     return norm.length >= 5 && /\d{5}/.test(norm);
   };
 
-  // 5. Buscar la columna que contiene la cédula
   let indiceCedula = -1;
-
   if (pareceNumerica(cols[0])) {
     indiceCedula = 0;
   } else if (pareceNumerica(cols[cols.length - 1])) {
@@ -304,17 +350,13 @@ function extraerDatosFila(filaCruda) {
   }
 
   if (indiceCedula === -1) {
-    return { cedula: cols[0], nombre: capitalizarNombre(cols.slice(1).join(" ")) };
+    return { cedula: cols[0], nombre: capitalizarNombre(cols.slice(1).join(' ')), valoracion: '', evaluador: '' };
   }
 
   const cedula = cols[indiceCedula];
+  const nombre = capitalizarNombre(cols.filter((_, i) => i !== indiceCedula).join(' '));
 
-  // 6. El resto de columnas forman el nombre
-  const nombre = capitalizarNombre(
-    cols.filter((_, i) => i !== indiceCedula).join(" ")
-  );
-
-  return { cedula, nombre };
+  return { cedula, nombre, valoracion: '', evaluador: '' };
 }
 
 function capitalizarNombre(str) {
@@ -482,7 +524,7 @@ function validarListaInicial() {
 
   filasAUsar.forEach((filaCruda, idx) => {
     const numFilaOriginal = idx + 1 + offsetFila;
-    const { cedula: colUno, nombre: nombreExtraido } = extraerDatosFila(filaCruda);
+    const { cedula: colUno, nombre: nombreExtraido, valoracion: valPrec, evaluador: evalPrec } = extraerDatosFila(filaCruda);
 
     if (colUno.trim() === "") {
       vaciosInvalidos++;
@@ -500,7 +542,7 @@ function validarListaInicial() {
         nombreCompleto: nombreExtraido,
         condicion: "normal",
         estado: "error",
-        errores: ["Cédula con formato inválido (sin dígitos)."],
+        errores: ["Cedula con formato invalido (sin digitos)."],
         advertencias: [],
         valoracionOriginal: "",
         valoracionNumerica: null,
@@ -514,6 +556,10 @@ function validarListaInicial() {
     if (!mapaVistas.has(cedulaNorm)) mapaVistas.set(cedulaNorm, []);
     mapaVistas.get(cedulaNorm).push(numFilaOriginal);
 
+    // Procesar valoracion y evaluador precargados (formato multi-columna)
+    const numPrec = valPrec ? parsearNumero(valPrec) : null;
+    const evalNorm = evalPrec ? normalizarCedula(evalPrec) : "";
+
     registros.push({
       numeroFilaOriginal: numFilaOriginal,
       cedulaOriginal: colUno,
@@ -523,10 +569,10 @@ function validarListaInicial() {
       estado: "pendiente",
       errores: [],
       advertencias: [],
-      valoracionOriginal: "",
-      valoracionNumerica: null,
-      cedulaEvaluadorOriginal: "",
-      cedulaEvaluadorNormalizada: "",
+      valoracionOriginal: valPrec || "",
+      valoracionNumerica: numPrec,
+      cedulaEvaluadorOriginal: evalPrec || "",
+      cedulaEvaluadorNormalizada: evalNorm,
       omitido: false
     });
   });
@@ -555,8 +601,9 @@ function validarListaInicial() {
     }
   });
 
-  // Asignar condición por prioridad
+  // Asignar condicion por prioridad y validar puntuaciones pre-cargadas
   let cntBloq = 0, cntRep = 0, cntEsp = 0, cntNorm = 0;
+  let cntPreValido = 0, cntPreError = 0;
   registros.forEach(r => {
     if (r.estado === "error" || r.estado === "duplicado") return;
     const cn = r.cedulaNormalizada;
@@ -564,6 +611,13 @@ function validarListaInicial() {
       r.condicion = "bloqueado";
       r.estado = "bloqueado";
       cntBloq++;
+      // Si trae puntuacion, es un error logico
+      if (r.valoracionNumerica !== null && !isNaN(r.valoracionNumerica)) {
+        r.errores.push(`Redundancia/Error: trabajador BLOQUEADO pero trae puntuacion (${r.valoracionNumerica}). No debe evaluarse.`);
+        r.estado = "error";
+        cntBloq--;
+        cntPreError++;
+      }
     } else if (cedsReposoNorm.has(cn)) {
       r.condicion = "reposo";
       cntRep++;
@@ -573,6 +627,29 @@ function validarListaInicial() {
     } else {
       r.condicion = "normal";
       cntNorm++;
+    }
+  });
+
+  // Validar puntuaciones pre-cargadas y auto-marcar como validos si cumplen las reglas
+  registros.forEach(r => {
+    if (r.estado === "error" || r.estado === "duplicado" || r.estado === "bloqueado") return;
+    if (r.valoracionNumerica === null || isNaN(r.valoracionNumerica)) return;  // sin dato precargado
+
+    const regla = REGLAS_VALORACION[r.condicion] || REGLAS_VALORACION.normal;
+    const n = r.valoracionNumerica;
+
+    if (r.condicion === "reposo" && (n < 100 || n > 300)) {
+      r.errores.push(`Error de rango: trabajador en REPOSO con puntuacion ${n} (permitido 100-300).`);
+      r.estado = "error";
+      cntPreError++;
+    } else if (n < regla.minimo || n > regla.maximo) {
+      r.errores.push(`Error de rango: puntuacion ${n} fuera del rango permitido (${regla.rangoTexto}).`);
+      r.estado = "error";
+      cntPreError++;
+    } else if (r.cedulaEvaluadorNormalizada && esFormatoValido(r.cedulaEvaluadorNormalizada)) {
+      // Datos completos y validos: marcar directamente como valido
+      r.estado = "valido";
+      cntPreValido++;
     }
   });
 
@@ -589,23 +666,50 @@ function validarListaInicial() {
   trabajadores = registros;
 
   const totalProcesados = filasAUsar.filter(l => l.trim()).length;
+
+  // Alertas de redundancias/errores de condicion
+  if (cntPreError > 0) {
+    zonaAlertasPaso1.appendChild(
+      crearAlerta("error", "⚠️",
+        `${cntPreError} fila${cntPreError !== 1 ? "s" : ""} con errores de condicion o rango ` +
+        `(bloqueado con puntuacion / reposo fuera de rango). Revise el reporte de incidencias.`)
+    );
+  }
+  if (cntPreValido > 0) {
+    zonaAlertasPaso1.appendChild(
+      crearAlerta("exito", "✅",
+        `${cntPreValido} registro${cntPreValido !== 1 ? "s" : ""} con puntuacion y evaluador validos ` +
+        `detectados y marcados automaticamente como validos.`)
+    );
+  }
+
   zonaAlertasPaso1.appendChild(
     crearAlerta(
-      totalParaEvaluar - cntBloq > 0 ? "exito" : "aviso",
+      totalParaEvaluar - cntBloq > 0 || cntPreValido > 0 ? "exito" : "aviso",
       "📊",
       `Se procesaron ${totalProcesados} fila${totalProcesados !== 1 ? "s" : ""}. ` +
-      `${totalParaEvaluar - cntBloq} para evaluar, ${cntBloq} bloqueado${cntBloq !== 1 ? "s" : ""}, ` +
-      `${totalDuplicados} duplicado${totalDuplicados !== 1 ? "s" : ""}, ${totalInvalidos} inválido${totalInvalidos !== 1 ? "s" : ""}.`
+      `${totalParaEvaluar - cntBloq} pendientes, ${cntPreValido} pre-validados, ` +
+      `${cntBloq} bloqueado${cntBloq !== 1 ? "s" : ""}, ` +
+      `${totalDuplicados} duplicado${totalDuplicados !== 1 ? "s" : ""}, ${totalInvalidos} invalido${totalInvalidos !== 1 ? "s" : ""}.`
     )
   );
 
-  if (duplicadosDetectados.length === 0 && (totalParaEvaluar - cntBloq) > 0) {
+  const hayPendientes = (totalParaEvaluar - cntBloq) > 0;
+  const todoPreValidado = cntPreValido > 0 && (totalParaEvaluar - cntBloq) === 0 && totalDuplicados === 0;
+
+  if (duplicadosDetectados.length === 0 && (hayPendientes || todoPreValidado)) {
     zonaIniciar.classList.remove("d-none");
     const hayNombres = registros.some(r => r.nombreCompleto && r.nombreCompleto.trim());
-    zonaOrdenamiento.style.display = hayNombres ? "" : "none";
-  } else if (duplicadosDetectados.length === 0 && (totalParaEvaluar - cntBloq) === 0) {
+    zonaOrdenamiento.style.display = hayNombres && hayPendientes ? "" : "none";
+
+    // Boton de acceso directo a exportacion cuando todos ya estan pre-validados
+    if (todoPreValidado) {
+      const btnIrExportar = document.getElementById("btn-ir-exportar-directo");
+      if (btnIrExportar) btnIrExportar.style.display = "";
+    }
+  } else if (duplicadosDetectados.length === 0 && (totalParaEvaluar - cntBloq) === 0 && cntPreValido === 0) {
     zonaAlertasPaso1.appendChild(
-      crearAlerta("error", "❌", "No hay trabajadores válidos para evaluar. Revise la lista.")
+      crearAlerta("error", "❌", "No hay trabajadores validos para evaluar. Revise la lista.")
     );
   }
 }
@@ -728,7 +832,7 @@ function renderizarVisorFilas(registros) {
   if (registros.length === 0) {
     const tr = document.createElement("tr");
     const td = document.createElement("td");
-    td.colSpan = 5;
+    td.colSpan = 7;
     td.textContent = "No hay filas para mostrar.";
     td.style.textAlign = "center";
     td.style.color = "var(--txt-muted)";
@@ -746,22 +850,43 @@ function renderizarVisorFilas(registros) {
     const tdFila = document.createElement("td");
     const badgeFila = document.createElement("span");
     badgeFila.className = "badge-num-fila";
-    badgeFila.textContent = `#${r.numeroFilaOriginal}`;
+    badgeFila.textContent = "#" + r.numeroFilaOriginal;
     tdFila.appendChild(badgeFila);
     tr.appendChild(tdFila);
 
-    // Cédula
+    // Cedula
     const tdCed = document.createElement("td");
-    tdCed.textContent = r.cedulaOriginal || "(vacía)";
+    tdCed.textContent = r.cedulaOriginal || "(vacia)";
     tdCed.style.fontWeight = "700";
     tr.appendChild(tdCed);
 
     // Nombre
     const tdNom = document.createElement("td");
-    tdNom.textContent = r.nombreCompleto || "—";
+    tdNom.textContent = r.nombreCompleto || "---";
     tdNom.style.fontSize = ".8rem";
     tdNom.style.color = "var(--txt-muted)";
     tr.appendChild(tdNom);
+
+    // Puntuacion
+    const tdVal = document.createElement("td");
+    tdVal.style.textAlign = "center";
+    tdVal.style.fontWeight = "700";
+    if (r.valoracionNumerica !== null && !isNaN(r.valoracionNumerica)) {
+      tdVal.textContent = r.valoracionNumerica;
+      if (r.estado === "error" && r.errores.some(function(e) { return e.includes("rango") || e.includes("BLOQUEADO"); })) {
+        tdVal.style.color = "#d32f2f";
+      }
+    } else {
+      tdVal.textContent = "---";
+      tdVal.style.color = "var(--txt-muted)";
+    }
+    tr.appendChild(tdVal);
+
+    // Evaluador
+    const tdEval = document.createElement("td");
+    tdEval.textContent = r.cedulaEvaluadorOriginal || "---";
+    tdEval.style.fontSize = ".8rem";
+    tr.appendChild(tdEval);
 
     // Estado
     const tdEst = document.createElement("td");
@@ -770,18 +895,19 @@ function renderizarVisorFilas(registros) {
       pendiente: "badge-pendiente", valido: "badge-valido",
       duplicado: "badge-error", error: "badge-error", bloqueado: "badge-bloqueado"
     };
-    badgeEst.className = `badge ${mapaB[r.estado] || "badge-pendiente"}`;
+    badgeEst.className = "badge " + (mapaB[r.estado] || "badge-pendiente");
     badgeEst.textContent = r.estado;
+    if (r.errores.length > 0) badgeEst.title = r.errores.join(" | ");
     tdEst.appendChild(badgeEst);
     tr.appendChild(tdEst);
 
-    // Acción
+    // Accion
     const tdAcc = document.createElement("td");
     const btnDel = document.createElement("button");
     btnDel.className = "btn-eliminar-fila";
     btnDel.type = "button";
-    btnDel.textContent = "🗑️ Eliminar";
-    btnDel.addEventListener("click", () => eliminarFilaOriginal(r.numeroFilaOriginal));
+    btnDel.textContent = "Eliminar";
+    btnDel.addEventListener("click", function() { eliminarFilaOriginal(r.numeroFilaOriginal); });
     tdAcc.appendChild(btnDel);
     tr.appendChild(tdAcc);
 
@@ -882,8 +1008,16 @@ btnOrdenarOrig.addEventListener("click", () => {
 /* ============================================================
    12. INICIAR EVALUACIÓN
    ============================================================ */
+const btnIrExportarDirecto = $("btn-ir-exportar-directo");
+if (btnIrExportarDirecto) {
+  btnIrExportarDirecto.addEventListener("click", () => {
+    sesionActiva = true;
+    abrirPantallaExportacion();
+  });
+}
+
 btnIniciar.addEventListener("click", () => {
-  trabajadores = trabajadores.filter(r => r.estado === "pendiente" || r.estado === "bloqueado");
+  trabajadores = trabajadores.filter(r => r.estado === "pendiente" || r.estado === "bloqueado" || r.estado === "valido");
 
   if (trabajadores.length === 0) {
     limpiarZona(zonaAlertasPaso1);
