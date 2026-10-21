@@ -3,18 +3,18 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="Validador temporal de valoraciones para trabajadores. Procesamiento local en navegador." />
+  <meta name="description" content="Verificador y corrector de datos de empleados. Procesamiento local en navegador." />
   <!-- Sin fuentes ni scripts externos: todo se procesa localmente -->
-  <title>Validador de Valoraciones</title>
+  <title>Verificación y Corrección de Empleados</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
 
   <!-- Cabecera de la aplicación -->
   <header class="app-header">
-    <span aria-hidden="true">📋</span>
-    <h1>Validador de Valoraciones de Trabajadores</h1>
-    <span class="badge-fase">v2.0</span>
+    <span aria-hidden="true">🛡️</span>
+    <h1>Verificación y Corrección de Empleados</h1>
+    <span class="badge-fase">v3.0</span>
 
     <div class="header-actions">
       <!-- Borrador -->
@@ -41,20 +41,20 @@
          INDICADOR DE PASOS GLOBAL
          ====================================================== -->
     <nav class="indicador-pasos" aria-label="Pasos del proceso">
-      <div class="paso-indicador activo" id="ind-paso-1">1 · Cargar</div>
-      <div class="paso-indicador"        id="ind-paso-2">2 · Evaluar</div>
-      <div class="paso-indicador"        id="ind-paso-3">3 · Exportar</div>
+      <div class="paso-indicador activo" id="ind-paso-1">1 · Entrada de datos</div>
+      <div class="paso-indicador"        id="ind-paso-2">2 · Verificación y corrección</div>
+      <div class="paso-indicador"        id="ind-paso-3">3 · Exportación</div>
     </nav>
 
     <!-- ======================================================
-         PANTALLA 1 — CARGAR TRABAJADORES
+         PANTALLA 1 — ENTRADA DE DATOS
          ====================================================== -->
-    <section class="pantalla activa" id="pantalla-1" aria-label="Paso 1: Cargar trabajadores">
+    <section class="pantalla activa" id="pantalla-1" aria-label="Paso 1: Entrada de datos">
 
       <div class="tarjeta">
         <h2 class="titulo-paso">
           <span aria-hidden="true">📂</span>
-          Paso 1 de 3 — Cargar trabajadores
+          Paso 1 de 3 — Entrada de datos
         </h2>
         <p class="subtitulo">
           Copie filas desde Excel (cédula sola, cédula+nombre, o formato completo de 9 columnas con puntuación y evaluador) y péguela en el área de texto.
@@ -62,7 +62,7 @@
 
         <!-- Lista principal -->
         <div class="campo-grupo">
-          <label for="area-trabajadores">Cédulas de trabajadores a evaluar</label>
+          <label for="area-trabajadores">Cédulas de empleados</label>
           <textarea
             id="area-trabajadores"
             class="grande"
@@ -102,7 +102,7 @@ Formatos soportados:
               <div>
                 Pegue aquí las cédulas con condiciones especiales. No es necesario incluirlas
                 también en la lista principal de arriba.
-                Los trabajadores no listados aquí se evaluarán como <strong>Normal (100–500)</strong>.
+                Los empleados no listados aquí se evaluarán como <strong>Normal (100–500)</strong>.
               </div>
             </div>
 
@@ -110,7 +110,7 @@ Formatos soportados:
             <div class="seccion-condicion seccion-bloqueado">
               <p class="seccion-condicion-titulo">
                 <span aria-hidden="true">🔴</span>
-                Trabajadores Bloqueados
+                Empleados Bloqueados
               </p>
               <p class="seccion-condicion-desc">
                 No serán evaluados ni incluidos en la exportación final. Rango: ninguno.
@@ -132,7 +132,7 @@ Formatos soportados:
             <div class="seccion-condicion seccion-reposo">
               <p class="seccion-condicion-titulo">
                 <span aria-hidden="true">🟡</span>
-                Trabajadores en Reposo
+                Empleados en Reposo
               </p>
               <p class="seccion-condicion-desc">
                 Valoración permitida: 100 a 300.
@@ -157,7 +157,7 @@ Formatos soportados:
                 Asignación Especial
               </p>
               <p class="seccion-condicion-desc">
-                Valoración permitida: 100 a 500.
+                No elegible para evaluación (no debe tener puntuación).
               </p>
               <label for="area-especial">Cédulas con asignación especial (una por fila)</label>
               <textarea
@@ -178,61 +178,6 @@ Formatos soportados:
         <!-- Zona de alertas de validación inicial -->
         <div id="zona-alertas-paso1" aria-live="polite"></div>
 
-        <!-- Duplicados detectados -->
-        <div id="zona-duplicados" class="d-none">
-          <div class="alerta alerta-aviso">
-            <span class="alerta-icono" aria-hidden="true">⚠️</span>
-            <div id="texto-duplicados"></div>
-          </div>
-
-          <!-- Botones de Acción Rápida para Duplicados -->
-          <div style="margin-bottom:12px; display:flex; flex-wrap:wrap; gap:8px;">
-            <button class="btn btn-exito btn-sm" id="btn-autoclean-primera">
-              <span aria-hidden="true">🧹</span> Conservar 1.ª aparición (Recomendado)
-            </button>
-            <button class="btn btn-secundario btn-sm" id="btn-autoclean-ultima">
-              <span aria-hidden="true">🧹</span> Conservar última aparición
-            </button>
-            <button class="btn btn-gris btn-sm" id="btn-toggle-visor-filas">
-              <span aria-hidden="true">📋</span> <span id="txt-toggle-visor">Ver lista numerada por filas</span>
-            </button>
-          </div>
-
-          <!-- Inspector caso por caso -->
-          <div class="lista-duplicados" id="lista-duplicados"></div>
-
-          <!-- Visor de lista numerada (desplegable) -->
-          <div id="visor-filas-contenedor" class="visor-filas-contenedor d-none">
-            <h4 style="font-size:.88rem; font-weight:700; margin-bottom:4px; color:var(--txt-primary);">
-              🔍 Inspector de filas pegadas (Lista numerada)
-            </h4>
-            <p style="font-size:.78rem; color:var(--txt-muted); margin-bottom:10px;">
-              Cada fila muestra su número exacto en la lista pegada. Puede eliminar filas individuales con un clic.
-            </p>
-            <div style="max-height:280px; overflow-y:auto; border:1px solid var(--border); border-radius:var(--radius-sm);">
-              <table class="tabla-visor-filas" id="tabla-visor-filas">
-                <thead>
-                  <tr>
-                    <th>Fila #</th>
-                    <th>Cédula</th>
-                    <th>Nombre</th>
-                    <th>Puntuación</th>
-                    <th>Evaluador</th>
-                    <th>Estado</th>
-                    <th>Acción</th>
-                  </tr>
-                </thead>
-                <tbody id="cuerpo-tabla-visor"></tbody>
-              </table>
-            </div>
-          </div>
-
-          <div class="grupo-botones" style="margin-top:14px;">
-            <button class="btn btn-secundario" id="btn-corregir-lista">✏️ Editar texto manualmente</button>
-            <button class="btn btn-primario"   id="btn-continuar-validos">▶️ Continuar con trabajadores válidos</button>
-          </div>
-        </div>
-
         <!-- Resumen de validación -->
         <div id="zona-resumen-validacion" class="d-none">
           <hr />
@@ -240,7 +185,7 @@ Formatos soportados:
           <div class="resumen-validacion">
             <div class="resumen-item resumen-validos">
               <div class="resumen-item-numero" id="res-validos">0</div>
-              <div class="resumen-item-etiqueta">Para evaluar</div>
+              <div class="resumen-item-etiqueta">Para verificar</div>
             </div>
             <div class="resumen-item resumen-bloqueados">
               <div class="resumen-item-numero" id="res-bloqueados">0</div>
@@ -268,14 +213,14 @@ Formatos soportados:
         <!-- Botones del paso 1 -->
         <div class="grupo-botones">
           <button class="btn btn-primario" id="btn-validar-lista">
-            <span aria-hidden="true">✔️</span> Validar lista de trabajadores
+            <span aria-hidden="true">✔️</span> Analizar y verificar datos
           </button>
           <button class="btn btn-gris"     id="btn-limpiar-lista">
             <span aria-hidden="true">🗑️</span> Limpiar lista
           </button>
         </div>
 
-        <!-- Botón iniciar evaluación (se muestra tras validación exitosa) -->
+        <!-- Botón iniciar verificación (se muestra tras validación exitosa) -->
         <div id="zona-iniciar" class="d-none" style="margin-top:16px;">
 
           <!-- Alerta de orden activo -->
@@ -287,7 +232,7 @@ Formatos soportados:
           <!-- Botones de ordenamiento (visibles solo si hay nombres disponibles) -->
           <div id="zona-ordenamiento" style="display:none; margin-bottom:14px;">
             <div style="display:flex; flex-wrap:wrap; gap:8px; align-items:center;">
-              <span style="font-size:.82rem; font-weight:600; color:var(--txt-muted);">Ordenar antes de evaluar:</span>
+              <span style="font-size:.82rem; font-weight:600; color:var(--txt-muted);">Ordenar antes de verificar:</span>
               <button class="btn btn-gris btn-sm" id="btn-ordenar-az">🔤 A → Z</button>
               <button class="btn btn-gris btn-sm" id="btn-ordenar-za">🔤 Z → A</button>
               <button class="btn btn-gris btn-sm" id="btn-ordenar-orig" disabled>🔢 Orden original</button>
@@ -295,7 +240,7 @@ Formatos soportados:
           </div>
 
           <button class="btn btn-exito" id="btn-iniciar-evaluacion">
-            <span aria-hidden="true">▶️</span> Iniciar evaluación
+            <span aria-hidden="true">🔍</span> Ir a Verificación y Corrección
           </button>
           <button class="btn btn-primario" id="btn-ir-exportar-directo" style="display:none;">
             <span aria-hidden="true">📤</span> Ver resultados / Exportar
@@ -306,213 +251,94 @@ Formatos soportados:
     </section>
 
     <!-- ======================================================
-         PANTALLA 2 — EVALUACIÓN INDIVIDUAL
+         PANTALLA 2 — VERIFICACIÓN Y CORRECCIÓN
          ====================================================== -->
-    <section class="pantalla" id="pantalla-2" aria-label="Paso 2: Evaluar trabajadores">
+    <section class="pantalla" id="pantalla-2" aria-label="Paso 2: Verificación y corrección">
 
       <div class="tarjeta">
         <h2 class="titulo-paso">
-          <span aria-hidden="true">✏️</span>
-          Paso 2 de 3 — Evaluar trabajadores
+          <span aria-hidden="true">🛠️</span>
+          Paso 2 de 3 — Verificación y corrección
         </h2>
 
-        <!-- Progreso -->
-        <p id="texto-progreso-eval" style="font-size:.88rem; color:var(--txt-muted); margin-bottom:6px;"></p>
-        <div class="barra-progreso-contenedor" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="barra-progreso-contenedor">
-          <div class="barra-progreso" id="barra-progreso" style="width:0%"></div>
+        <!-- Contadores de estado -->
+        <div class="contadores-estado" id="contadores-estado">
+          <div class="contador-chip contador-total">
+            <span class="contador-chip-num" id="cnt-total">0</span>
+            <span class="contador-chip-lbl">Total</span>
+          </div>
+          <div class="contador-chip contador-ok">
+            <span class="contador-chip-num" id="cnt-ok">0</span>
+            <span class="contador-chip-lbl">✅ Correctos</span>
+          </div>
+          <div class="contador-chip contador-disc">
+            <span class="contador-chip-num" id="cnt-disc">0</span>
+            <span class="contador-chip-lbl">⚠️ Discrepancias</span>
+          </div>
         </div>
-        <p class="texto-progreso" id="texto-porcentaje"></p>
 
-        <!-- Buscador de trabajadores -->
-        <div class="buscador-contenedor" style="margin-top:12px;">
+        <!-- Barra de filtros -->
+        <div class="filtros-bar" role="group" aria-label="Filtrar empleados">
+          <button class="filtro-tab activo" id="filtro-todos" data-filtro="todos">📋 Todos</button>
+          <button class="filtro-tab" id="filtro-correctos" data-filtro="correctos">✅ Correctos</button>
+          <button class="filtro-tab" id="filtro-discrepancias" data-filtro="discrepancias">⚠️ Con discrepancias</button>
+        </div>
+
+        <!-- Buscador -->
+        <div class="buscador-contenedor" style="margin-bottom:12px;">
           <span class="buscador-icono" aria-hidden="true">🔍</span>
           <input
             type="text"
             id="input-buscador"
             class="buscador-input"
-            placeholder="Buscar por cédula o nombre para saltar directamente..."
+            placeholder="Buscar por cédula o nombre..."
             autocomplete="off"
-            aria-label="Buscar trabajador"
-            aria-autocomplete="list"
-            aria-controls="buscador-resultados"
+            aria-label="Buscar empleado"
           />
-          <div id="buscador-resultados" class="buscador-resultados" role="listbox" aria-label="Resultados de búsqueda" style="display:none;"></div>
         </div>
 
-        <!-- Selector de Modo de Vista -->
-        <div class="selector-modo">
-          <span class="selector-modo-titulo">Vista:</span>
-          <button class="btn-modo activo" id="btn-modo-ficha" aria-pressed="true">📇 Ficha 1 a 1</button>
-          <button class="btn-modo"        id="btn-modo-planilla" aria-pressed="false">📊 Planilla rápida</button>
-          <button class="btn btn-gris btn-sm" id="btn-ir-pendiente" style="margin-left:auto;" title="Ir al siguiente trabajador pendiente">
-            ⏩ Siguiente pendiente
-          </button>
+        <!-- Acciones masivas -->
+        <div class="acciones-masivas" id="acciones-masivas" style="display:none;">
+          <span style="font-size:.8rem; font-weight:700; color:var(--txt-muted); white-space:nowrap;">Acciones masivas:</span>
+          <button class="btn btn-sm btn-secundario" id="btn-mass-dedup">🧹 Auto-desduplicar</button>
+          <button class="btn btn-sm btn-secundario" id="btn-mass-reposo">📉 Ajustar reposos</button>
+          <button class="btn btn-sm btn-secundario" id="btn-mass-especial">🧽 Limpiar notas especiales</button>
+          <button class="btn btn-sm btn-peligro"   id="btn-mass-bloqueados">🗑️ Eliminar bloqueados</button>
         </div>
 
-        <hr />
+        <!-- Zona de alertas del paso 2 -->
+        <div id="zona-alertas-paso2" aria-live="polite"></div>
 
-        <!-- ── MODO FICHA 1 A 1 ───────────────────────────────── -->
-        <div id="vista-ficha">
-
-          <!-- Bloque trabajador bloqueado -->
-          <div id="panel-bloqueado" class="panel-bloqueado d-none">
-            <div class="panel-bloqueado-icono" aria-hidden="true">🚫</div>
-            <p class="panel-bloqueado-titulo">Trabajador bloqueado: no elegible para evaluación</p>
-            <p class="panel-bloqueado-desc">Este registro no será incluido en los listados de salida.</p>
+        <!-- Tabla de verificación y corrección -->
+        <div class="tabla-verificacion-contenedor">
+          <table class="tabla-verificacion" id="tabla-verificacion" role="grid">
+            <thead>
+              <tr>
+                <th scope="col">#</th>
+                <th scope="col">Cédula</th>
+                <th scope="col">Nombre</th>
+                <th scope="col">Condición</th>
+                <th scope="col">Puntuación</th>
+                <th scope="col">Evaluador</th>
+                <th scope="col">Diagnóstico y acciones</th>
+              </tr>
+            </thead>
+            <tbody id="cuerpo-tabla-verificacion"></tbody>
+          </table>
+          <div id="tabla-vacia-msg" class="tabla-vacia-msg" style="display:none;">
+            No hay registros que coincidan con el filtro actual.
           </div>
-
-          <!-- Info del trabajador -->
-          <div class="info-trabajador" id="info-trabajador">
-
-            <!-- Nombre: ocupa todo el ancho, se oculta si no hay nombre -->
-            <div class="campo-info" id="campo-nombre-container" style="grid-column:1/-1; display:none; background:var(--blue-bg); border-color:var(--blue-border);">
-              <div class="campo-info-etiqueta" style="color:var(--blue-text);">Nombre del trabajador</div>
-              <div class="campo-info-valor" id="nombre-display" style="font-size:1.05rem; color:var(--blue-text);"></div>
-            </div>
-
-            <div class="campo-info">
-              <div class="campo-info-etiqueta">Cédula del trabajador</div>
-              <div class="campo-info-valor" id="cedula-trabajador-display"></div>
-            </div>
-            <div class="campo-info">
-              <div class="campo-info-etiqueta">Condición detectada</div>
-              <div class="campo-info-valor" id="condicion-display"></div>
-            </div>
-            <div class="campo-info">
-              <div class="campo-info-etiqueta">Rango permitido</div>
-              <div class="campo-info-valor" id="rango-display"></div>
-            </div>
-            <div class="campo-info">
-              <div class="campo-info-etiqueta">Evaluación #</div>
-              <div class="campo-info-valor" id="num-evaluacion-display"></div>
-            </div>
-          </div>
-
-          <!-- Zona de alertas del paso 2 -->
-          <div id="zona-alertas-paso2" aria-live="polite"></div>
-
-          <!-- Formulario de evaluación (oculto para bloqueados) -->
-          <div id="form-evaluacion">
-            <div class="campo-grupo campo-validacion">
-              <label for="input-valoracion">Valoración</label>
-              <input
-                type="text"
-                id="input-valoracion"
-                placeholder="Ingrese la valoración numérica"
-                autocomplete="off"
-                inputmode="decimal"
-                aria-describedby="error-valoracion hint-valoracion"
-              />
-              <span class="hint" id="hint-valoracion"></span>
-              <span class="error-campo" id="error-valoracion" role="alert"></span>
-
-              <!-- Chips de valoración rápida -->
-              <div id="zona-chips-val" style="margin-top:8px;">
-                <span class="chips-titulo">Valoración rápida:</span>
-                <div class="chips-valoracion" role="group" aria-label="Selección rápida de valoración">
-                  <button class="chip-val" data-val="100" type="button">100</button>
-                  <button class="chip-val" data-val="200" type="button">200</button>
-                  <button class="chip-val" data-val="300" type="button">300</button>
-                  <button class="chip-val" data-val="400" type="button">400</button>
-                  <button class="chip-val" data-val="500" type="button">500</button>
-                  <button class="chip-val chip-max" id="chip-max" type="button" title="Valor máximo para la condición actual">Máx</button>
-                  <button class="chip-val chip-repeat" id="chip-repeat" type="button" title="Repetir la valoración del trabajador anterior" disabled>↩ Repetir</button>
-                </div>
-              </div>
-            </div>
-
-            <div class="campo-grupo campo-validacion">
-              <label for="input-evaluador">Cédula del evaluador</label>
-              <input
-                type="text"
-                id="input-evaluador"
-                placeholder="Cédula del evaluador"
-                autocomplete="off"
-                aria-describedby="error-evaluador hint-evaluador"
-              />
-              <span class="hint" id="hint-evaluador">Se conservará automáticamente para el siguiente trabajador.</span>
-              <span class="error-campo" id="error-evaluador" role="alert"></span>
-
-              <!-- Evaluadores frecuentes -->
-              <div id="zona-evaluadores-frecuentes" style="margin-top:6px; display:none;">
-                <span class="chips-titulo">Evaluadores recientes:</span>
-                <div class="evaluadores-frecuentes" id="lista-eval-frecuentes" role="group" aria-label="Evaluadores recientes"></div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Atajos de teclado -->
-          <div class="atajos-info" aria-label="Atajos de teclado disponibles">
-            <span class="atajo-chip">Enter → Guardar y siguiente</span>
-            <span class="atajo-chip">Ctrl+Z → Deshacer</span>
-            <span class="atajo-chip">Alt+→ → Siguiente</span>
-            <span class="atajo-chip">Alt+← → Anterior</span>
-            <span class="atajo-chip">Esc → Limpiar valoración</span>
-          </div>
-
-          <!-- Botones de navegación -->
-          <div class="grupo-botones" style="margin-top:20px;">
-            <button class="btn btn-gris"        id="btn-anterior">
-              <span aria-hidden="true">◀</span> Anterior
-            </button>
-            <button class="btn btn-primario"     id="btn-guardar-siguiente">
-              <span aria-hidden="true">💾</span> Guardar y siguiente
-            </button>
-            <button class="btn btn-advertencia"  id="btn-omitir">
-              <span aria-hidden="true">⏭</span> Omitir
-            </button>
-          </div>
-
-        </div><!-- fin vista-ficha -->
-
-        <!-- ── MODO PLANILLA RÁPIDA ────────────────────────────── -->
-        <div id="vista-planilla" style="display:none;">
-          <p style="font-size:.83rem; color:var(--txt-muted); margin-bottom:10px;">
-            Use <kbd>Enter</kbd> o <kbd>↓</kbd> para pasar al siguiente registro. <kbd>↑</kbd> para retroceder.
-          </p>
-          <div class="tabla-planilla-contenedor">
-            <table class="tabla-planilla" id="tabla-planilla" role="grid">
-              <thead>
-                <tr>
-                  <th scope="col">#</th>
-                  <th scope="col">Cédula</th>
-                  <th scope="col">Nombre</th>
-                  <th scope="col">Condición</th>
-                  <th scope="col">Rango</th>
-                  <th scope="col">Valoración</th>
-                  <th scope="col">Estado</th>
-                </tr>
-              </thead>
-              <tbody id="cuerpo-tabla-planilla"></tbody>
-            </table>
-          </div>
-
-          <!-- Evaluador global en modo planilla -->
-          <div class="campo-grupo campo-validacion" style="max-width:300px; margin-top:14px;">
-            <label for="input-evaluador-planilla">Cédula del evaluador (global)</label>
-            <input
-              type="text"
-              id="input-evaluador-planilla"
-              placeholder="Cédula del evaluador"
-              autocomplete="off"
-              aria-describedby="error-evaluador-planilla"
-            />
-            <span class="error-campo" id="error-evaluador-planilla" role="alert"></span>
-          </div>
-
-          <div class="grupo-botones" style="margin-top:10px;">
-            <button class="btn btn-exito" id="btn-guardar-planilla">
-              <span aria-hidden="true">✅</span> Guardar todos los válidos de la planilla
-            </button>
-          </div>
-        </div><!-- fin vista-planilla -->
+        </div>
 
         <!-- Botones globales del paso 2 -->
         <div class="grupo-botones" style="margin-top:16px; border-top:1px solid var(--border); padding-top:14px;">
-          <button class="btn btn-exito"        id="btn-finalizar-evaluacion">
-            <span aria-hidden="true">✅</span> Finalizar evaluación
+          <button class="btn btn-exito"   id="btn-finalizar-evaluacion">
+            <span aria-hidden="true">📤</span> Ir a Exportar
           </button>
-          <button class="btn btn-peligro"      id="btn-descartar-sesion-eval">
+          <button class="btn btn-gris"    id="btn-volver-datos">
+            <span aria-hidden="true">◀</span> Volver a entrada de datos
+          </button>
+          <button class="btn btn-peligro" id="btn-descartar-sesion-eval">
             <span aria-hidden="true">🗑️</span> Descartar sesión
           </button>
         </div>
@@ -521,14 +347,14 @@ Formatos soportados:
     </section>
 
     <!-- ======================================================
-         PANTALLA 3 — REVISIÓN FINAL Y EXPORTACIÓN
+         PANTALLA 3 — EXPORTACIÓN
          ====================================================== -->
-    <section class="pantalla" id="pantalla-3" aria-label="Paso 3: Revisión y exportación">
+    <section class="pantalla" id="pantalla-3" aria-label="Paso 3: Exportación">
 
       <div class="tarjeta">
         <h2 class="titulo-paso">
           <span aria-hidden="true">📤</span>
-          Paso 3 de 3 — Revisión final y exportación
+          Paso 3 de 3 — Exportación
         </h2>
 
         <!-- Verificación de alineación -->
@@ -541,7 +367,7 @@ Formatos soportados:
         <div class="guia-pegado">
           <h4>📋 Orden recomendado para pegar en el Excel protegido</h4>
           <ol>
-            <li>Copie el bloque <strong>Cédulas de trabajadores</strong> y péguelo en la columna correspondiente del Excel.</li>
+            <li>Copie el bloque <strong>Cédulas de empleados</strong> y péguelo en la columna correspondiente del Excel.</li>
             <li>Copie el bloque <strong>Valoraciones</strong> y péguelo en la columna de valoraciones.</li>
             <li>Copie el bloque <strong>Cédulas de evaluadores</strong> y péguelo en la columna de evaluadores.</li>
           </ol>
@@ -557,7 +383,7 @@ Formatos soportados:
           <table>
             <thead>
               <tr>
-                <th>Cédula trabajador</th>
+                <th>Cédula empleado</th>
                 <th>Valoración</th>
                 <th>Cédula evaluador</th>
               </tr>
@@ -566,10 +392,10 @@ Formatos soportados:
           </table>
         </div>
 
-        <!-- Bloque 1: Cédulas de trabajadores -->
+        <!-- Bloque 1: Cédulas de empleados -->
         <div class="bloque-exportacion bloque-exp-cedulas">
           <div class="bloque-exportacion-header">
-            <h3>1. Cédulas de trabajadores</h3>
+            <h3>1. Cédulas de empleados</h3>
             <div class="bloque-copiar">
               <button class="btn btn-primario btn-sm" id="btn-copiar-cedulas">
                 <span aria-hidden="true">📋</span> Copiar cédulas
@@ -577,7 +403,7 @@ Formatos soportados:
               <span class="msg-copiado" id="msg-cedulas-copiado" aria-live="polite">✔ Copiado</span>
             </div>
           </div>
-          <textarea id="salida-cedulas" readonly aria-label="Listado de cédulas de trabajadores para copiar"></textarea>
+          <textarea id="salida-cedulas" readonly aria-label="Listado de cédulas de empleados para copiar"></textarea>
         </div>
 
         <!-- Bloque 2: Valoraciones -->
@@ -621,7 +447,7 @@ Formatos soportados:
         <!-- Reporte de incidencias -->
         <div class="bloque-exportacion bloque-exp-reporte">
           <div class="bloque-exportacion-header">
-            <h3>⚠️ Registros pendientes, omitidos, bloqueados o con errores</h3>
+            <h3>⚠️ Registros excluidos, con discrepancias o eliminados</h3>
             <div class="bloque-copiar">
               <button class="btn btn-advertencia btn-sm" id="btn-copiar-reporte">
                 <span aria-hidden="true">📋</span> Copiar reporte
@@ -650,7 +476,7 @@ Formatos soportados:
         <!-- Botones finales -->
         <div class="grupo-botones" style="margin-top:20px;">
           <button class="btn btn-secundario" id="btn-volver-evaluar">
-            <span aria-hidden="true">◀</span> Volver a evaluar pendientes
+            <span aria-hidden="true">◀</span> Volver a verificar
           </button>
           <button class="btn btn-primario"   id="btn-nueva-sesion">
             <span aria-hidden="true">🔄</span> Iniciar nueva sesión
@@ -674,6 +500,16 @@ Formatos soportados:
         <button class="btn btn-gris"    id="modal-btn-cancelar">Cancelar</button>
         <button class="btn btn-peligro" id="modal-btn-confirmar">Confirmar</button>
       </div>
+    </div>
+  </div>
+
+  <!-- Modal de resolución de discrepancias (aviso personalizado + botones de acción) -->
+  <div class="modal-overlay" id="modal-resolucion-overlay" role="dialog" aria-modal="true" aria-labelledby="modal-res-titulo">
+    <div class="modal modal-resolucion">
+      <div class="modal-res-tipo" id="modal-res-tipo-badge"></div>
+      <h3 id="modal-res-titulo"></h3>
+      <div id="modal-res-detalle" class="modal-res-detalle"></div>
+      <div id="modal-res-botones" class="modal-res-botones grupo-botones"></div>
     </div>
   </div>
 

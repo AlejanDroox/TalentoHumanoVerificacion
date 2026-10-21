@@ -1,114 +1,63 @@
-# Validador de Valoraciones de Trabajadores
+# Verificación y Corrección de Datos de Empleados
 
-Herramienta web estática para validar y registrar valoraciones de trabajadores,
-diseñada para operar **completamente en el navegador** sin transmitir ningún dato
-a servidores externos.
+Herramienta web estática para verificar, detectar discrepancias y corregir datos de empleados antes de la exportación final a Excel. Diseñada para operar **completamente en el navegador** sin transmitir datos a servidores externos.
 
 ---
 
 ## ¿Qué hace esta herramienta?
 
-1. **Carga masiva inteligente** de cédulas copiadas desde Excel (soporta cédula sola, `Cédula Nombre` o `Nombre Cédula` con separadores de tabulación o espacios, limpiando automáticamente caracteres especiales de Excel).
-2. **Listas independientes de condiciones especiales** (Bloqueados, Reposo, Asignación Especial) con conteo en vivo.
-3. **Ordenamiento alfabético** (A→Z, Z→A o restablecer orden original) para agilizar la identificación del trabajador.
-4. **Modo dual de evaluación**:
-   - **Modo Ficha (1 a 1)**: Visualización enfocada con chips de notas rápidas (`100` a `500`, `Máx`, `Repetir anterior`), evaluadores frecuentes y atajo `Ctrl+Z` para deshacer.
-   - **Modo Planilla rápida**: Tabla interactiva tipo hoja de cálculo para digitar valores rápidamente navegando con `Enter` o flechas `↑`/`↓`.
-5. **Buscador interactivo**: Localice y salte inmediatamente a cualquier trabajador por cédula o nombre sin avanzar uno por uno.
-6. **Tema Claro / Oscuro**: Interruptor en cabecera (☀️ / 🌙) para reducir la fatiga visual en jornadas prolongadas.
-7. **Resguardo local seguro (.json)**: Posibilidad de guardar y cargar borradores de sesión en archivos locales sin violar la privacidad ni usar almacenamiento en servidor.
-8. **Exportación verificada**:
-   - 3 bloques independientes para columnas separadas del Excel protegido.
-   - Previsualización sincronizada de 3 columnas (primeras y últimas filas lado a lado).
-   - Bloque único consolidado (TSV) para pegar todo de una sola vez si el Excel lo permite.
-   - Checklist visual de copiado (`✔ Copiado`).
+1. **Flujo estructurado en 3 pasos**:
+   - **Paso 1 · Entrada de datos**: Carga masiva inteligente desde Excel (formatos de solo cédula, cédula con nombre, o formato completo tabulado de 9 columnas con puntuaciones y evaluadores), con listas independientes de condiciones especiales (Bloqueados, Reposo, Asignación Especial).
+   - **Paso 2 · Verificación y corrección**: Diagnóstico automático de inconsistencias, avisos personalizados por empleado y propuestas de solución inmediata con 1 clic.
+   - **Paso 3 · Exportación**: Previsualización sincronizada y copiado independiente o consolidado (TSV) de columnas para el Excel protegido.
 
----
+2. **Modo listado interactivo exclusivo**:
+   - Se eliminó el modo ficha individual; la aplicación opera mediante una tabla ágil donde cada fila muestra estado, puntuación editable, evaluador, diagnóstico y acciones directas.
+   - **Resaltado en rojo** para cualquier empleado que presente discrepancias o errores de condición/rango.
+   - **Resaltado en verde** para registros limpios y validados.
 
-## Uso rápido
+3. **Filtros rápidos de visualización**:
+   - 📋 **Todos**: Visualiza la nómina completa y contadores globales en tiempo real.
+   - ✅ **Correctos**: Filtra únicamente los registros conformes y listos para exportar.
+   - ⚠️ **Con discrepancias**: Muestra exclusivamente los registros que requieren atención o decisión del usuario.
 
-### Paso 1 — Cargar trabajadores
-1. Copie la lista desde su Excel (cédula sola o con nombres) y péguela en el área principal.
-2. (Opcional) Abra el panel **"Listas de condiciones especiales"** y pegue las cédulas
-   en las categorías correspondientes:
-   - 🔴 **Bloqueados** — No serán evaluados ni exportados.
-   - 🟡 **Reposo** — Valoración válida: 100 a 300.
-   - 🔵 **Asignación Especial** — Valoración válida: 100 a 500.
-3. Presione **Validar lista de trabajadores**.
-4. (Opcional) Si la lista incluye nombres, utilice los botones **🔤 A → Z** o **🔤 Z → A** para ordenar antes de evaluar.
-5. Presione **Iniciar evaluación**.
+4. **Soluciones interactivas por estado de empleado**:
+   - **Duplicados**: Detección de filas donde aparece la cédula repetida. Opciones para **Fusionar datos** en un solo registro limpio, **Conservar** una aparición específica o **Eliminar** el duplicado.
+   - **Bloqueados**: Detección de empleados bloqueados (con o sin nota indebida). Opciones para **Conservar sin puntuación** o **Eliminar empleado**.
+   - **En reposo**: Validación estricta del rango (100–300). Opciones para **Ajustar puntuación a 300** automáticamente, editar la celda o **Eliminar empleado**.
+   - **Asignación especial**: Detección de puntuaciones indebidas en empleados no evaluables. Opciones para **Conservar sin puntuación** (limpieza automática) o **Eliminar empleado**.
 
-### Paso 2 — Evaluar trabajadores
-- **En Modo Ficha (1 a 1)**:
-  1. Ingrese la valoración numérica o use los chips rápidos: `[100]`, `[200]`, `[300]`, `[400]`, `[500]`, `[Máx]` o `[↩ Repetir]`.
-  2. Ingrese la cédula del evaluador (se mantiene automáticamente y se guarda en evaluadores recientes).
-  3. Presione **Guardar y siguiente** o use `Enter` para avanzar.
-- **En Modo Planilla rápida**:
-  1. Escriba la valoración directamente en la celda y pulse `Enter` o `↓` para bajar al siguiente trabajador.
-  2. Ingrese el evaluador global y pulse **Guardar todos los válidos de la planilla**.
+5. **Acciones masivas de saneamiento**:
+   - Botones rápidos en cabecera para auto-desduplicar masivamente, corregir en lote todos los reposos fuera de rango, limpiar notas en asignaciones especiales o depurar bloqueados con confirmación previa.
 
-**Atajos de teclado:**
-
-| Atajo | Acción |
-|---|---|
-| `Enter` | Guardar y avanzar al siguiente |
-| `Ctrl + Z` | Deshacer última valoración guardada |
-| `Alt + →` | Siguiente trabajador |
-| `Alt + ←` | Trabajador anterior |
-| `Esc` | Limpiar campo de valoración |
-| `↓` / `↑` (en planilla) | Moverse entre filas de la tabla |
-
-### Paso 3 — Exportar
-1. Verifique el resumen de alineación y la previsualización de 3 columnas.
-2. Copie cada bloque por separado (`Cédulas`, `Valoraciones`, `Evaluadores`) y péguelo en la columna correspondiente del Excel protegido.
-3. **Pegue siempre comenzando en la misma fila inicial en Excel.**
-4. Opcionalmente, copie la tabla completa en formato TSV.
-
----
-
-## Privacidad y Seguridad
-
-> ⚠️ Esta herramienta **no transmite ningún dato** a servidores externos.
-> Toda la información se procesa únicamente en la memoria RAM de su navegador
-> y no se almacena en bases de datos ni servicios externos.
-
-La aplicación **no contiene ni utilizará:**
-- Backend, API ni bases de datos remotas.
-- `fetch`, `XMLHttpRequest`, ni WebSockets hacia servidores externos.
-- `localStorage`, `sessionStorage` ni cookies de rastreo.
-- Librerías externas cargadas desde CDN.
-
-El resguardo de borrador funciona 100% en el cliente mediante la API de archivos locales (`Blob` y `FileReader`).
+6. **Privacidad absoluta**:
+   - Procesamiento 100% en memoria RAM local del navegador. Sin backend, sin almacenamiento en servidor, sin cookies ni APIs externas. Resguardo opcional mediante borrador `.json` local.
 
 ---
 
 ## Reglas de Negocio
 
-| Condición | Rango válido | Prioridad |
+| Condición | Rango válido | Regla / Estado |
 |---|---|---|
-| Bloqueado | No evaluable | 1 (más alta) |
-| Reposo | 100 – 300 | 2 |
-| Asignación Especial | 100 – 500 | 3 |
-| Normal | 100 – 500 | 4 (más baja) |
-
-Si una cédula aparece en más de una lista de condiciones especiales,
-se aplica la condición con mayor prioridad.
+| **Bloqueado** | No evaluable | No debe tener puntuación ni procesarse como normal. |
+| **Reposo** | 100 – 300 | Puntuación obligatoria dentro del rango 100 a 300. |
+| **Asignación Especial** | No evaluable | No debe tener puntuación asignada. |
+| **Normal** | 100 – 500 | Puntuación estándar entre 100 y 500. |
 
 ---
 
 ## Estructura del Proyecto
 
 ```
-validador-valoraciones/
-├── index.html     # Estructura HTML con soporte de temas y vistas
-├── styles.css     # Estilos CSS modernos con variables de tema claro/oscuro
-├── app.js         # Lógica completa en JavaScript puro (cliente 100%)
-├── README.md      # Esta documentación
-└── .gitignore     # Archivos excluidos del repositorio
+test1/
+├── index.html     # Estructura HTML con flujo de 3 pasos y modales de resolución
+├── styles.css     # Estilos CSS corporativos con temas Claro/Oscuro y alertas visuales
+├── app.js         # Lógica de detección, filtros, resolución y exportación
+└── README.md      # Documentación del sistema
 ```
 
 ---
 
 ## Versión
 
-Versión 2.0 — Modo Oscuro, Modo Planilla Rápida, Chips de Entrada Rápida, Resguardo Local y Exportación Verificada.
+**Versión 3.0** — Enfoque integral de Verificación y Corrección de Datos, Modo Listado Exclusivo, Resaltado Visual de Discrepancias, Filtros por Estado y Soluciones Interactivas (Conservar, Fusionar, Corregir, Eliminar).

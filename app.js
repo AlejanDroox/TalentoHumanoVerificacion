@@ -1,7 +1,7 @@
 /* ============================================================
-   VALIDADOR DE VALORACIONES — app.js v2.0
-   Modo Oscuro · Modo Planilla · Chips de valoración · Buscador
-   Evaluadores frecuentes · Deshacer · Borrador local
+   VERIFICACIÓN Y CORRECCIÓN DE EMPLEADOS — app.js v3.0
+   Modo Listado Exclusivo · Detección de discrepancias por estado
+   Avisos personalizados · Resolución con 1 clic · Filtros
    Sin fetch · Sin XMLHttpRequest · Sin localStorage · Sin cookies
    ============================================================ */
 
@@ -15,7 +15,7 @@ const REGLAS_VALORACION = {
     permitido: false,
     minimo: null,
     maximo: null,
-    mensajeError: "Trabajador bloqueado: no elegible para evaluación.",
+    mensajeError: "Empleado bloqueado: no elegible para evaluación.",
     etiqueta: "Bloqueado",
     rangoTexto: "No evaluable"
   },
@@ -23,23 +23,23 @@ const REGLAS_VALORACION = {
     permitido: true,
     minimo: 100,
     maximo: 300,
-    mensajeError: "Trabajador en reposo: la valoración debe estar entre 100 y 300.",
+    mensajeError: "Empleado en reposo: la valoración debe estar entre 100 y 300.",
     etiqueta: "En reposo",
     rangoTexto: "100 a 300"
   },
   asignacion_especial: {
-    permitido: true,
-    minimo: 100,
-    maximo: 500,
-    mensajeError: "Asignación especial: la valoración debe estar entre 100 y 500.",
-    etiqueta: "Asignación especial",
-    rangoTexto: "100 a 500"
+    permitido: false,
+    minimo: null,
+    maximo: null,
+    mensajeError: "Asignación especial: no elegible para evaluación.",
+    etiqueta: "Asig. especial",
+    rangoTexto: "No evaluable"
   },
   normal: {
     permitido: true,
     minimo: 100,
     maximo: 500,
-    mensajeError: "Trabajador normal: la valoración debe estar entre 100 y 500.",
+    mensajeError: "Empleado normal: la valoración debe estar entre 100 y 500.",
     etiqueta: "Normal",
     rangoTexto: "100 a 500"
   }
@@ -49,15 +49,12 @@ const REGLAS_VALORACION = {
    2. ESTADO DE LA SESIÓN (Solo en memoria)
    ============================================================ */
 let trabajadores         = [];
-let indiceActual         = 0;
-let evaluadorActual      = "";
 let sesionActiva         = false;
 let duplicadosDetectados = [];
-let ultimaValoracion     = null; // para el chip "Repetir"
-let historialDeshacer    = [];   // pila de snapshots para Ctrl+Z
-let evaluadoresFrecuentes = [];  // últimos evaluadores usados (máx 3)
-let modoVista            = "ficha"; // "ficha" | "planilla"
-let temaActual           = "light"; // "light" | "dark"
+let evaluadoresFrecuentes = [];
+let temaActual           = "light";
+let filtroActual         = "todos";   // "todos" | "correctos" | "discrepancias"
+let busquedaActual       = "";
 
 /* ============================================================
    3. REFERENCIAS AL DOM
@@ -91,17 +88,6 @@ const contadorEsp       = $("contador-especial");
 const btnValidar        = $("btn-validar-lista");
 const btnLimpiar        = $("btn-limpiar-lista");
 const zonaAlertasPaso1  = $("zona-alertas-paso1");
-const zonaDuplicados    = $("zona-duplicados");
-const textoDuplicados   = $("texto-duplicados");
-const listaDuplicados   = $("lista-duplicados");
-const btnCorregirLista    = $("btn-corregir-lista");
-const btnContinuarVal     = $("btn-continuar-validos");
-const btnAutocleanPrimera  = $("btn-autoclean-primera");
-const btnAutocleanUltima   = $("btn-autoclean-ultima");
-const btnToggleVisorFilas  = $("btn-toggle-visor-filas");
-const txtToggleVisor       = $("txt-toggle-visor");
-const visorFilasContenedor = $("visor-filas-contenedor");
-const cuerpoTablaVisor     = $("cuerpo-tabla-visor");
 const zonaResumen       = $("zona-resumen-validacion");
 const zonaIniciar       = $("zona-iniciar");
 const btnIniciar        = $("btn-iniciar-evaluacion");
@@ -115,50 +101,25 @@ const panelCondiciones  = $("panel-condiciones");
 const btnToggleCond     = $("btn-toggle-condiciones");
 const cuerpoCond        = $("cuerpo-condiciones");
 
-// Paso 2 — comunes
-const textoProgresoEval = $("texto-progreso-eval");
-const barraProgreso     = $("barra-progreso");
-const barraCont         = $("barra-progreso-contenedor");
-const textoPorcentaje   = $("texto-porcentaje");
-const zonaAlertasPaso2  = $("zona-alertas-paso2");
-const btnFinalizar      = $("btn-finalizar-evaluacion");
-const btnDescartarEval  = $("btn-descartar-sesion-eval");
-const inputBuscador     = $("input-buscador");
-const buscadorResultados= $("buscador-resultados");
-const btnIrPendiente    = $("btn-ir-pendiente");
-const btnModoFicha      = $("btn-modo-ficha");
-const btnModoPlanilla   = $("btn-modo-planilla");
-const vistaFicha        = $("vista-ficha");
-const vistaPlanilla     = $("vista-planilla");
-
-// Paso 2 — vista ficha
-const panelBloqueado    = $("panel-bloqueado");
-const campoNombreCont   = $("campo-nombre-container");
-const nombreDisplay     = $("nombre-display");
-const cedulaDisplay     = $("cedula-trabajador-display");
-const condicionDisplay  = $("condicion-display");
-const rangoDisplay      = $("rango-display");
-const numEvalDisplay    = $("num-evaluacion-display");
-const formEval          = $("form-evaluacion");
-const inputValoracion   = $("input-valoracion");
-const inputEvaluador    = $("input-evaluador");
-const errorValoracion   = $("error-valoracion");
-const errorEvaluador    = $("error-evaluador");
-const hintValoracion    = $("hint-valoracion");
-const btnAnterior       = $("btn-anterior");
-const btnGuardarSig     = $("btn-guardar-siguiente");
-const btnOmitir         = $("btn-omitir");
-const chipMax           = $("chip-max");
-const chipRepeat        = $("chip-repeat");
-const zonaChipsVal      = $("zona-chips-val");
-const zonaEvalFrecuentes= $("zona-evaluadores-frecuentes");
-const listaEvalFrecuentes=$("lista-eval-frecuentes");
-
-// Paso 2 — vista planilla
-const cuerpoTablaPlanilla = $("cuerpo-tabla-planilla");
-const inputEvaluadorPlanilla = $("input-evaluador-planilla");
-const errorEvaluadorPlanilla = $("error-evaluador-planilla");
-const btnGuardarPlanilla = $("btn-guardar-planilla");
+// Paso 2
+const zonaAlertasPaso2       = $("zona-alertas-paso2");
+const cuerpoTablaVerificacion= $("cuerpo-tabla-verificacion");
+const tablaVaciaMsg          = $("tabla-vacia-msg");
+const cntTotal               = $("cnt-total");
+const cntOk                  = $("cnt-ok");
+const cntDisc                = $("cnt-disc");
+const btnFiltroTodos         = $("filtro-todos");
+const btnFiltroCorrectos     = $("filtro-correctos");
+const btnFiltroDisc          = $("filtro-discrepancias");
+const inputBuscador          = $("input-buscador");
+const accionesMasivas        = $("acciones-masivas");
+const btnMassDedup           = $("btn-mass-dedup");
+const btnMassReposo          = $("btn-mass-reposo");
+const btnMassEspecial        = $("btn-mass-especial");
+const btnMassBloqueados      = $("btn-mass-bloqueados");
+const btnFinalizar           = $("btn-finalizar-evaluacion");
+const btnVolverDatos         = $("btn-volver-datos");
+const btnDescartarEval       = $("btn-descartar-sesion-eval");
 
 // Paso 3
 const verificAlin       = $("verificacion-alineacion");
@@ -177,19 +138,26 @@ const msgValores        = $("msg-valores-copiado");
 const msgEvaluadores    = $("msg-evaluadores-copiado");
 const msgReporte        = $("msg-reporte-copiado");
 const msgTsv            = $("msg-tsv-copiado");
-const cuerpoTablaRep    = $("cuerpo-tabla-reporte");
 const reporteVacio      = $("reporte-vacio");
+const cuerpoTablaRep    = $("cuerpo-tabla-reporte");
 const cuerpoPreview     = $("cuerpo-preview");
 const btnVolverEval     = $("btn-volver-evaluar");
 const btnNuevaSesion    = $("btn-nueva-sesion");
 const btnDescartarFinal = $("btn-descartar-sesion-final");
 
-// Modal
+// Modal general
 const modalOverlay      = $("modal-overlay");
 const modalTitulo       = $("modal-titulo");
 const modalCuerpo       = $("modal-cuerpo");
 const modalBtnCancelar  = $("modal-btn-cancelar");
 const modalBtnConfirmar = $("modal-btn-confirmar");
+
+// Modal resolución
+const modalResolucionOverlay = $("modal-resolucion-overlay");
+const modalResTipoBadge      = $("modal-res-tipo-badge");
+const modalResTitulo         = $("modal-res-titulo");
+const modalResDetalle        = $("modal-res-detalle");
+const modalResBotones        = $("modal-res-botones");
 
 /* ============================================================
    4. MODO OSCURO / CLARO
@@ -206,7 +174,6 @@ function aplicarTema(tema) {
   }
 }
 
-// Detectar preferencia del sistema al cargar
 (function () {
   const prefOscuro = window.matchMedia &&
     window.matchMedia("(prefers-color-scheme: dark)").matches;
@@ -221,54 +188,40 @@ btnToggleTema.addEventListener("click", () => {
    5. UTILIDADES PURAS
    ============================================================ */
 
-/** Normaliza una cédula: elimina caracteres especiales, convierte a mayúsculas */
 function normalizarCedula(valor) {
   if (valor === null || valor === undefined) return "";
   return String(valor)
     .trim()
     .toUpperCase()
-    // Limpiar caracteres de Excel: espacios no rompibles, comillas automáticas
     .replace(/\u00A0/g, " ")
     .replace(/[\u2018\u2019\u201C\u201D]/g, "")
     .replace(/[.,\s\-]/g, "")
     .replace(/[^A-Z0-9]/g, "");
 }
 
-/** Parsea número tolerando coma o punto decimal */
 function parsearNumero(valor) {
   if (valor === null || valor === undefined) return NaN;
   const limpio = String(valor).trim().replace(",", ".");
   return parseFloat(limpio);
 }
 
-/** Obtiene la primera columna de una fila */
 function primerColumna(fila) {
   return fila.split(/\t|;|(?:\s{2,})/)[0].trim();
 }
 
-/**
- * Extrae cedula, nombre, valoracion y evaluador de una fila pegada desde Excel.
- * Soporta formato completo de 9 columnas tabuladas:
- *   [Cedula] [NPersonal] [Nombre] [Grado] [Centro] [Estado] [Puntuacion] [TextoCal] [NEvaluador]
- * y formatos legados de 1-2 columnas.
- */
 function extraerDatosFila(filaCruda) {
-  // Limpiar caracteres basura de Excel (espacios no rompibles, BOM)
   const filaLimpia = filaCruda
     .replace(/\u00A0/g, ' ')
     .replace(/\uFEFF/g, '')
     .replace(/[\u2018\u2019\u201C\u201D]/g, '');
 
-  // 1. Separar por TAB (separador nativo de Excel)
   let cols = filaLimpia.split('\t').map(c => c.trim()).filter(c => c.length > 0);
 
-  // 2. Si solo 1 col, intentar por 2+ espacios
   if (cols.length <= 1) {
     const por2esp = filaLimpia.split(/\s{2,}/).map(c => c.trim()).filter(c => c.length > 0);
     if (por2esp.length > 1) cols = por2esp;
   }
 
-  // 3. Si sigue 1 col, espacio simple buscando token numerico
   if (cols.length <= 1) {
     const tokens = filaLimpia.trim().split(/\s+/);
     if (tokens.length > 1) {
@@ -277,21 +230,33 @@ function extraerDatosFila(filaCruda) {
       if (idxCed !== -1) {
         const ced = tokens[idxCed];
         const nom = tokens.filter((_, i) => i !== idxCed).join(' ');
-        return { cedula: ced, nombre: capitalizarNombre(nom), valoracion: '', evaluador: '' };
+        let condicionDetectada = null;
+        if (/asignaci[oó]n\s+especial/i.test(filaLimpia)) condicionDetectada = "asignacion_especial";
+        else if (/\bbloquead[oa]s?\b/i.test(filaLimpia)) condicionDetectada = "bloqueado";
+        else if (/\breposo\b/i.test(filaLimpia)) condicionDetectada = "reposo";
+        return { cedula: ced, nombre: capitalizarNombre(nom), valoracion: '', evaluador: '', condicionDetectada };
       }
     }
-    return { cedula: filaLimpia.trim(), nombre: '', valoracion: '', evaluador: '' };
+    let condicionDetectada = null;
+    if (/asignaci[oó]n\s+especial/i.test(filaLimpia)) condicionDetectada = "asignacion_especial";
+    else if (/\bbloquead[oa]s?\b/i.test(filaLimpia)) condicionDetectada = "bloqueado";
+    else if (/\breposo\b/i.test(filaLimpia)) condicionDetectada = "reposo";
+    return { cedula: filaLimpia.trim(), nombre: '', valoracion: '', evaluador: '', condicionDetectada };
   }
 
-  // -- MODO MULTI-COLUMNA (>= 3 cols con TAB) --
-  // Detecta formato Excel: col[0]=Cedula, col[-1]=Evaluador(numerico), col[penultimo]=Puntuacion(100-999)
   if (cols.length >= 3) {
     const limpio = v => v.replace(/\./g, '').replace(',', '.');
     const esPuro = v => /^\d+([.,]\d+)?$/.test(limpio(v));
 
     const cedula = cols[0];
 
-    // Columna final: evaluador si es puramente numerico
+    let condicionDetectada = null;
+    for (const c of cols) {
+      if (/asignaci[oó]n\s+especial/i.test(c)) { condicionDetectada = "asignacion_especial"; break; }
+      else if (/\bbloquead[oa]s?\b/i.test(c)) { condicionDetectada = "bloqueado"; break; }
+      else if (/\breposo\b/i.test(c)) { condicionDetectada = "reposo"; break; }
+    }
+
     let evaluador = '';
     let idxEval = -1;
     if (esPuro(cols[cols.length - 1])) {
@@ -299,7 +264,6 @@ function extraerDatosFila(filaCruda) {
       idxEval   = cols.length - 1;
     }
 
-    // Buscar puntuacion: numerico 100-999 desde la derecha antes del evaluador
     let valoracion = '';
     let idxVal = -1;
     const limite = idxEval !== -1 ? idxEval : cols.length;
@@ -312,12 +276,11 @@ function extraerDatosFila(filaCruda) {
       }
     }
 
-    // Nombre: columnas internas excluyendo numeros cortos y etiquetas texto de calificacion
     const excluir = new Set([0, idxVal, idxEval].filter(i => i !== -1));
     const nombreCols = cols.filter((c, i) => {
       if (excluir.has(i)) return false;
       if (/^\d+$/.test(limpio(c)) && limpio(c).length <= 6) return false;
-      if (/^(Muy\s*Bueno|Bueno|Regular|Deficiente|Excelente|MB|B|R|D)$/i.test(c)) return false;
+      if (/^(Muy\s*Bueno|Bueno|Regular|Deficiente|Excelente|MB|B|R|D|Bloqueado|Bloqueada|Reposo|Asignaci[oó]n\s+Especial)$/i.test(c.trim())) return false;
       return true;
     });
     let nombre = '';
@@ -327,12 +290,11 @@ function extraerDatosFila(filaCruda) {
       nombre = capitalizarNombre(nombreCols.join(' '));
     }
 
-    if (valoracion || evaluador) {
-      return { cedula, nombre, valoracion, evaluador };
+    if (valoracion || evaluador || condicionDetectada) {
+      return { cedula, nombre, valoracion, evaluador, condicionDetectada };
     }
   }
 
-  // -- MODO LEGACY (1-2 cols) --
   const pareceNumerica = val => {
     const norm = normalizarCedula(val);
     return norm.length >= 5 && /\d{5}/.test(norm);
@@ -349,28 +311,33 @@ function extraerDatosFila(filaCruda) {
     }
   }
 
+  let condicionDetectada = null;
+  if (/asignaci[oó]n\s+especial/i.test(filaLimpia)) {
+    condicionDetectada = "asignacion_especial";
+  } else if (/\bbloquead[oa]s?\b/i.test(filaLimpia)) {
+    condicionDetectada = "bloqueado";
+  } else if (/\breposo\b/i.test(filaLimpia)) {
+    condicionDetectada = "reposo";
+  }
+
   if (indiceCedula === -1) {
-    return { cedula: cols[0], nombre: capitalizarNombre(cols.slice(1).join(' ')), valoracion: '', evaluador: '' };
+    return { cedula: cols[0], nombre: capitalizarNombre(cols.slice(1).join(' ')), valoracion: '', evaluador: '', condicionDetectada };
   }
 
   const cedula = cols[indiceCedula];
   const nombre = capitalizarNombre(cols.filter((_, i) => i !== indiceCedula).join(' '));
 
-  return { cedula, nombre, valoracion: '', evaluador: '' };
+  return { cedula, nombre, valoracion: '', evaluador: '', condicionDetectada };
 }
 
 function capitalizarNombre(str) {
-  return str
-    .toLowerCase()
-    .replace(/\b\w/g, c => c.toUpperCase());
+  return str.toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
 }
 
-/** Valida que una cadena tenga al menos un dígito */
 function esFormatoValido(cedulaNorm) {
   return cedulaNorm.length > 0 && /\d/.test(cedulaNorm);
 }
 
-/** Copia texto al portapapeles */
 function copiarAlPortapapeles(texto) {
   if (navigator.clipboard && window.isSecureContext) {
     return navigator.clipboard.writeText(texto);
@@ -393,14 +360,13 @@ function copiarAlPortapapeles(texto) {
   });
 }
 
-/** Muestra mensaje de copiado temporalmente */
 function mostrarMsgCopiado(elemento) {
   elemento.classList.add("visible");
   setTimeout(() => elemento.classList.remove("visible"), 3500);
 }
 
 /* ============================================================
-   6. CONSTRUCCIÓN DE ALERTAS (sin innerHTML con datos de usuario)
+   6. CONSTRUCCIÓN DE ALERTAS
    ============================================================ */
 function crearAlerta(tipo, icono, textoMensaje) {
   const div = document.createElement("div");
@@ -451,7 +417,6 @@ btnToggleCond.addEventListener("click", () => {
   btnToggleCond.setAttribute("aria-expanded", abierto ? "true" : "false");
 });
 
-// Contadores en tiempo real
 function actualizarContadorCondicion(area, contadorEl) {
   const filas = leerCedulasDeArea(area);
   contadorEl.textContent = `${filas.length} cédula${filas.length !== 1 ? "s" : ""}`;
@@ -482,7 +447,6 @@ btnValidar.addEventListener("click", validarListaInicial);
 
 function validarListaInicial() {
   limpiarZona(zonaAlertasPaso1);
-  zonaDuplicados.classList.add("d-none");
   zonaResumen.classList.add("d-none");
   zonaIniciar.classList.add("d-none");
 
@@ -490,17 +454,15 @@ function validarListaInicial() {
 
   if (!textoRaw.trim()) {
     zonaAlertasPaso1.appendChild(
-      crearAlerta("error", "❌", "La lista de trabajadores está vacía. Pegue al menos una cédula para continuar.")
+      crearAlerta("error", "❌", "La lista de empleados está vacía. Pegue al menos una cédula para continuar.")
     );
     return;
   }
 
-  // Leer listas de condiciones
   const cedsBloquNorm  = new Set(leerCedulasDeArea(areaBloqueados).map(normalizarCedula).filter(v => v));
   const cedsReposoNorm = new Set(leerCedulasDeArea(areaReposo).map(normalizarCedula).filter(v => v));
   const cedsEspecNorm  = new Set(leerCedulasDeArea(areaEspecial).map(normalizarCedula).filter(v => v));
 
-  // Detectar encabezado
   const filasCrudas = textoRaw.split("\n");
   let offsetFila = 0;
   const primeraFila = primerColumna(filasCrudas[0]).trim();
@@ -524,7 +486,7 @@ function validarListaInicial() {
 
   filasAUsar.forEach((filaCruda, idx) => {
     const numFilaOriginal = idx + 1 + offsetFila;
-    const { cedula: colUno, nombre: nombreExtraido, valoracion: valPrec, evaluador: evalPrec } = extraerDatosFila(filaCruda);
+    const { cedula: colUno, nombre: nombreExtraido, valoracion: valPrec, evaluador: evalPrec, condicionDetectada } = extraerDatosFila(filaCruda);
 
     if (colUno.trim() === "") {
       vaciosInvalidos++;
@@ -541,14 +503,16 @@ function validarListaInicial() {
         cedulaNormalizada: cedulaNorm,
         nombreCompleto: nombreExtraido,
         condicion: "normal",
+        condicionDetectada: condicionDetectada || null,
         estado: "error",
-        errores: ["Cedula con formato invalido (sin digitos)."],
+        errores: ["Cédula con formato inválido (sin dígitos)."],
         advertencias: [],
         valoracionOriginal: "",
         valoracionNumerica: null,
         cedulaEvaluadorOriginal: "",
         cedulaEvaluadorNormalizada: "",
-        omitido: false
+        omitido: false,
+        eliminado: false
       });
       return;
     }
@@ -556,7 +520,6 @@ function validarListaInicial() {
     if (!mapaVistas.has(cedulaNorm)) mapaVistas.set(cedulaNorm, []);
     mapaVistas.get(cedulaNorm).push(numFilaOriginal);
 
-    // Procesar valoracion y evaluador precargados (formato multi-columna)
     const numPrec = valPrec ? parsearNumero(valPrec) : null;
     const evalNorm = evalPrec ? normalizarCedula(evalPrec) : "";
 
@@ -566,6 +529,7 @@ function validarListaInicial() {
       cedulaNormalizada: cedulaNorm,
       nombreCompleto: nombreExtraido,
       condicion: null,
+      condicionDetectada: condicionDetectada || null,
       estado: "pendiente",
       errores: [],
       advertencias: [],
@@ -573,7 +537,8 @@ function validarListaInicial() {
       valoracionNumerica: numPrec,
       cedulaEvaluadorOriginal: evalPrec || "",
       cedulaEvaluadorNormalizada: evalNorm,
-      omitido: false
+      omitido: false,
+      eliminado: false
     });
   });
 
@@ -601,53 +566,58 @@ function validarListaInicial() {
     }
   });
 
-  // Asignar condicion por prioridad y validar puntuaciones pre-cargadas
+  // Asignar condición por prioridad
   let cntBloq = 0, cntRep = 0, cntEsp = 0, cntNorm = 0;
   let cntPreValido = 0, cntPreError = 0;
   registros.forEach(r => {
     if (r.estado === "error" || r.estado === "duplicado") return;
     const cn = r.cedulaNormalizada;
-    if (cedsBloquNorm.has(cn)) {
+    if (cedsBloquNorm.has(cn) || r.condicionDetectada === "bloqueado") {
       r.condicion = "bloqueado";
       r.estado = "bloqueado";
       cntBloq++;
-      // Si trae puntuacion, es un error logico
       if (r.valoracionNumerica !== null && !isNaN(r.valoracionNumerica)) {
-        r.errores.push(`Redundancia/Error: trabajador BLOQUEADO pero trae puntuacion (${r.valoracionNumerica}). No debe evaluarse.`);
+        r.errores.push(`Discrepancia: empleado BLOQUEADO pero trae puntuación (${r.valoracionNumerica}). No debe evaluarse.`);
         r.estado = "error";
         cntBloq--;
         cntPreError++;
       }
-    } else if (cedsReposoNorm.has(cn)) {
+    } else if (cedsReposoNorm.has(cn) || r.condicionDetectada === "reposo") {
       r.condicion = "reposo";
       cntRep++;
-    } else if (cedsEspecNorm.has(cn)) {
+    } else if (cedsEspecNorm.has(cn) || r.condicionDetectada === "asignacion_especial") {
       r.condicion = "asignacion_especial";
+      r.estado = "asignacion_especial";
       cntEsp++;
+      if (r.valoracionNumerica !== null && !isNaN(r.valoracionNumerica)) {
+        r.errores.push(`Discrepancia: empleado con ASIGNACIÓN ESPECIAL pero trae puntuación (${r.valoracionNumerica}). No debe evaluarse.`);
+        r.estado = "error";
+        cntEsp--;
+        cntPreError++;
+      }
     } else {
       r.condicion = "normal";
       cntNorm++;
     }
   });
 
-  // Validar puntuaciones pre-cargadas y auto-marcar como validos si cumplen las reglas
+  // Validar puntuaciones pre-cargadas
   registros.forEach(r => {
-    if (r.estado === "error" || r.estado === "duplicado" || r.estado === "bloqueado") return;
-    if (r.valoracionNumerica === null || isNaN(r.valoracionNumerica)) return;  // sin dato precargado
+    if (r.estado === "error" || r.estado === "duplicado" || r.estado === "bloqueado" || r.estado === "asignacion_especial") return;
+    if (r.valoracionNumerica === null || isNaN(r.valoracionNumerica)) return;
 
     const regla = REGLAS_VALORACION[r.condicion] || REGLAS_VALORACION.normal;
     const n = r.valoracionNumerica;
 
     if (r.condicion === "reposo" && (n < 100 || n > 300)) {
-      r.errores.push(`Error de rango: trabajador en REPOSO con puntuacion ${n} (permitido 100-300).`);
+      r.errores.push(`Discrepancia de rango: empleado en REPOSO con puntuación ${n} (permitido 100-300).`);
       r.estado = "error";
       cntPreError++;
-    } else if (n < regla.minimo || n > regla.maximo) {
-      r.errores.push(`Error de rango: puntuacion ${n} fuera del rango permitido (${regla.rangoTexto}).`);
+    } else if (!regla.permitido || n < regla.minimo || n > regla.maximo) {
+      r.errores.push(`Discrepancia de rango: puntuación ${n} fuera del rango permitido (${regla.rangoTexto}).`);
       r.estado = "error";
       cntPreError++;
     } else if (r.cedulaEvaluadorNormalizada && esFormatoValido(r.cedulaEvaluadorNormalizada)) {
-      // Datos completos y validos: marcar directamente como valido
       r.estado = "valido";
       cntPreValido++;
     }
@@ -655,61 +625,55 @@ function validarListaInicial() {
 
   const totalDuplicados  = duplicadosDetectados.length;
   const totalInvalidos   = vaciosInvalidos + registros.filter(r => r.estado === "error").length;
-  const totalParaEvaluar = registros.filter(r => r.estado === "pendiente" || r.estado === "bloqueado").length;
+  const totalPendientes  = registros.filter(r => r.estado === "pendiente" || r.estado === "reposo").length;
 
-  mostrarResumen(totalParaEvaluar - cntBloq, cntBloq, cntRep, cntEsp, totalDuplicados, totalInvalidos);
-
-  if (duplicadosDetectados.length > 0) {
-    mostrarPanelDuplicados(duplicadosDetectados, registros);
-  }
+  mostrarResumen(totalPendientes, cntBloq, cntRep, cntEsp, totalDuplicados, totalInvalidos);
 
   trabajadores = registros;
 
   const totalProcesados = filasAUsar.filter(l => l.trim()).length;
 
-  // Alertas de redundancias/errores de condicion
   if (cntPreError > 0) {
     zonaAlertasPaso1.appendChild(
-      crearAlerta("error", "⚠️",
-        `${cntPreError} fila${cntPreError !== 1 ? "s" : ""} con errores de condicion o rango ` +
-        `(bloqueado con puntuacion / reposo fuera de rango). Revise el reporte de incidencias.`)
+      crearAlerta("aviso", "⚠️",
+        `${cntPreError} fila${cntPreError !== 1 ? "s" : ""} con discrepancias detectadas ` +
+        `(bloqueado/asignación especial con puntuación, reposo fuera de rango). Se corregirán en el paso de verificación.`)
     );
   }
   if (cntPreValido > 0) {
     zonaAlertasPaso1.appendChild(
       crearAlerta("exito", "✅",
-        `${cntPreValido} registro${cntPreValido !== 1 ? "s" : ""} con puntuacion y evaluador validos ` +
-        `detectados y marcados automaticamente como validos.`)
+        `${cntPreValido} registro${cntPreValido !== 1 ? "s" : ""} con puntuación y evaluador válidos detectados automáticamente.`)
     );
   }
 
+  const hayRegistros = registros.filter(r => r.estado !== "error" || r.errores.length > 0).length > 0;
+
   zonaAlertasPaso1.appendChild(
     crearAlerta(
-      totalParaEvaluar - cntBloq > 0 || cntPreValido > 0 ? "exito" : "aviso",
+      hayRegistros ? "exito" : "aviso",
       "📊",
       `Se procesaron ${totalProcesados} fila${totalProcesados !== 1 ? "s" : ""}. ` +
-      `${totalParaEvaluar - cntBloq} pendientes, ${cntPreValido} pre-validados, ` +
+      `${totalPendientes} pendientes, ${cntPreValido} pre-validados, ` +
       `${cntBloq} bloqueado${cntBloq !== 1 ? "s" : ""}, ` +
-      `${totalDuplicados} duplicado${totalDuplicados !== 1 ? "s" : ""}, ${totalInvalidos} invalido${totalInvalidos !== 1 ? "s" : ""}.`
+      `${cntEsp} con asignación especial, ` +
+      `${totalDuplicados} duplicado${totalDuplicados !== 1 ? "s" : ""}, ${totalInvalidos} inválido${totalInvalidos !== 1 ? "s" : ""}.`
     )
   );
 
-  const hayPendientes = (totalParaEvaluar - cntBloq) > 0;
-  const todoPreValidado = cntPreValido > 0 && (totalParaEvaluar - cntBloq) === 0 && totalDuplicados === 0;
-
-  if (duplicadosDetectados.length === 0 && (hayPendientes || todoPreValidado)) {
+  if (hayRegistros || cntPreValido > 0 || cntBloq > 0 || cntEsp > 0 || totalDuplicados > 0) {
     zonaIniciar.classList.remove("d-none");
     const hayNombres = registros.some(r => r.nombreCompleto && r.nombreCompleto.trim());
-    zonaOrdenamiento.style.display = hayNombres && hayPendientes ? "" : "none";
+    const hayParaOrdenar = registros.some(r => r.estado === "pendiente" || r.condicion === "reposo");
+    zonaOrdenamiento.style.display = hayNombres && hayParaOrdenar ? "" : "none";
 
-    // Boton de acceso directo a exportacion cuando todos ya estan pre-validados
-    if (todoPreValidado) {
-      const btnIrExportar = document.getElementById("btn-ir-exportar-directo");
+    if (cntPreValido > 0 && totalPendientes === 0 && totalDuplicados === 0) {
+      const btnIrExportar = $("btn-ir-exportar-directo");
       if (btnIrExportar) btnIrExportar.style.display = "";
     }
-  } else if (duplicadosDetectados.length === 0 && (totalParaEvaluar - cntBloq) === 0 && cntPreValido === 0) {
+  } else {
     zonaAlertasPaso1.appendChild(
-      crearAlerta("error", "❌", "No hay trabajadores validos para evaluar. Revise la lista.")
+      crearAlerta("error", "❌", "No hay empleados válidos para verificar. Revise la lista.")
     );
   }
 }
@@ -724,229 +688,9 @@ function mostrarResumen(validos, bloq, rep, esp, dup, inv) {
   zonaResumen.classList.remove("d-none");
 }
 
-function mostrarPanelDuplicados(dups, registros) {
-  textoDuplicados.textContent =
-    `Se detectaron ${dups.length} cédula${dups.length !== 1 ? "s" : ""} duplicada${dups.length !== 1 ? "s" : ""}. ` +
-    `Utilice los botones rápidos para limpiar la lista automáticamente o inspeccione cada caso abajo:`;
-
-  listaDuplicados.replaceChildren();
-
-  dups.forEach(d => {
-    const tarjeta = document.createElement("div");
-    tarjeta.className = "tarjeta-duplicado-caso";
-
-    const regBase = registros.find(r => r.cedulaNormalizada === d.cedulaNorm);
-    const cedMostrar = regBase ? regBase.cedulaOriginal : d.cedulaNorm;
-
-    const header = document.createElement("div");
-    header.className = "tarjeta-duplicado-header";
-    header.innerHTML = `<span>⚠️ Cédula duplicada: <strong>${cedMostrar}</strong></span><span>(${d.filas.length} apariciones)</span>`;
-    tarjeta.appendChild(header);
-
-    // Listar cada ocurrencia con su número de fila y nombre
-    const ocurrencias = registros.filter(r => r.cedulaNormalizada === d.cedulaNorm);
-    ocurrencias.forEach(r => {
-      const item = document.createElement("div");
-      item.className = "duplicado-opcion-item";
-
-      const info = document.createElement("div");
-      const badgeFila = document.createElement("span");
-      badgeFila.className = "badge-num-fila";
-      badgeFila.textContent = `Fila #${r.numeroFilaOriginal}`;
-
-      const txtNombre = document.createTextNode(
-        ` · ${r.cedulaOriginal}${r.nombreCompleto ? ` (${r.nombreCompleto})` : ""}`
-      );
-
-      info.appendChild(badgeFila);
-      info.appendChild(txtNombre);
-
-      const btnEliminar = document.createElement("button");
-      btnEliminar.className = "btn-eliminar-fila";
-      btnEliminar.type = "button";
-      btnEliminar.textContent = `🗑️ Eliminar Fila #${r.numeroFilaOriginal}`;
-      btnEliminar.addEventListener("click", () => eliminarFilaOriginal(r.numeroFilaOriginal));
-
-      item.appendChild(info);
-      item.appendChild(btnEliminar);
-      tarjeta.appendChild(item);
-    });
-
-    listaDuplicados.appendChild(tarjeta);
-  });
-
-  zonaDuplicados.classList.remove("d-none");
-
-  // Si el visor de filas estaba abierto, actualizarlo también
-  if (!visorFilasContenedor.classList.contains("d-none")) {
-    renderizarVisorFilas(registros);
-  }
-}
-
-/* --- Desduplicación Automática Masiva --- */
-btnAutocleanPrimera.addEventListener("click", () => autodesduplicar("primera"));
-btnAutocleanUltima.addEventListener("click", () => autodesduplicar("ultima"));
-
-function autodesduplicar(modo) {
-  const filasRaw = areaTrabajadores.value.split("\n");
-  const mapaVistas = new Map();
-
-  filasRaw.forEach((f, idx) => {
-    const { cedula } = extraerDatosFila(f);
-    const cnorm = normalizarCedula(cedula);
-    if (cnorm && esFormatoValido(cnorm)) {
-      if (!mapaVistas.has(cnorm)) mapaVistas.set(cnorm, []);
-      mapaVistas.get(cnorm).push(idx);
-    }
-  });
-
-  const indicesAEliminar = new Set();
-  for (const [, indices] of mapaVistas.entries()) {
-    if (indices.length > 1) {
-      if (modo === "primera") {
-        indices.slice(1).forEach(i => indicesAEliminar.add(i));
-      } else {
-        indices.slice(0, -1).forEach(i => indicesAEliminar.add(i));
-      }
-    }
-  }
-
-  const filasLimpias = filasRaw.filter((_, idx) => !indicesAEliminar.has(idx));
-  areaTrabajadores.value = filasLimpias.join("\n");
-  validarListaInicial();
-}
-
-/* --- Visor de Lista Numerada por Filas --- */
-btnToggleVisorFilas.addEventListener("click", () => {
-  const estaOculto = visorFilasContenedor.classList.contains("d-none");
-  visorFilasContenedor.classList.toggle("d-none", !estaOculto);
-  txtToggleVisor.textContent = estaOculto ? "Ocultar lista numerada" : "Ver lista numerada por filas";
-  if (estaOculto) {
-    renderizarVisorFilas(trabajadores);
-  }
-});
-
-function renderizarVisorFilas(registros) {
-  cuerpoTablaVisor.replaceChildren();
-
-  if (registros.length === 0) {
-    const tr = document.createElement("tr");
-    const td = document.createElement("td");
-    td.colSpan = 7;
-    td.textContent = "No hay filas para mostrar.";
-    td.style.textAlign = "center";
-    td.style.color = "var(--txt-muted)";
-    tr.appendChild(td);
-    cuerpoTablaVisor.appendChild(tr);
-    return;
-  }
-
-  registros.forEach(r => {
-    const tr = document.createElement("tr");
-    if (r.estado === "duplicado") tr.className = "fila-num-duplicada";
-    if (r.estado === "error") tr.className = "fila-num-error";
-
-    // Fila #
-    const tdFila = document.createElement("td");
-    const badgeFila = document.createElement("span");
-    badgeFila.className = "badge-num-fila";
-    badgeFila.textContent = "#" + r.numeroFilaOriginal;
-    tdFila.appendChild(badgeFila);
-    tr.appendChild(tdFila);
-
-    // Cedula
-    const tdCed = document.createElement("td");
-    tdCed.textContent = r.cedulaOriginal || "(vacia)";
-    tdCed.style.fontWeight = "700";
-    tr.appendChild(tdCed);
-
-    // Nombre
-    const tdNom = document.createElement("td");
-    tdNom.textContent = r.nombreCompleto || "---";
-    tdNom.style.fontSize = ".8rem";
-    tdNom.style.color = "var(--txt-muted)";
-    tr.appendChild(tdNom);
-
-    // Puntuacion
-    const tdVal = document.createElement("td");
-    tdVal.style.textAlign = "center";
-    tdVal.style.fontWeight = "700";
-    if (r.valoracionNumerica !== null && !isNaN(r.valoracionNumerica)) {
-      tdVal.textContent = r.valoracionNumerica;
-      if (r.estado === "error" && r.errores.some(function(e) { return e.includes("rango") || e.includes("BLOQUEADO"); })) {
-        tdVal.style.color = "#d32f2f";
-      }
-    } else {
-      tdVal.textContent = "---";
-      tdVal.style.color = "var(--txt-muted)";
-    }
-    tr.appendChild(tdVal);
-
-    // Evaluador
-    const tdEval = document.createElement("td");
-    tdEval.textContent = r.cedulaEvaluadorOriginal || "---";
-    tdEval.style.fontSize = ".8rem";
-    tr.appendChild(tdEval);
-
-    // Estado
-    const tdEst = document.createElement("td");
-    const badgeEst = document.createElement("span");
-    const mapaB = {
-      pendiente: "badge-pendiente", valido: "badge-valido",
-      duplicado: "badge-error", error: "badge-error", bloqueado: "badge-bloqueado"
-    };
-    badgeEst.className = "badge " + (mapaB[r.estado] || "badge-pendiente");
-    badgeEst.textContent = r.estado;
-    if (r.errores.length > 0) badgeEst.title = r.errores.join(" | ");
-    tdEst.appendChild(badgeEst);
-    tr.appendChild(tdEst);
-
-    // Accion
-    const tdAcc = document.createElement("td");
-    const btnDel = document.createElement("button");
-    btnDel.className = "btn-eliminar-fila";
-    btnDel.type = "button";
-    btnDel.textContent = "Eliminar";
-    btnDel.addEventListener("click", function() { eliminarFilaOriginal(r.numeroFilaOriginal); });
-    tdAcc.appendChild(btnDel);
-    tr.appendChild(tdAcc);
-
-    cuerpoTablaVisor.appendChild(tr);
-  });
-}
-
-function eliminarFilaOriginal(numFila) {
-  const filasRaw = areaTrabajadores.value.split("\n");
-  if (numFila >= 1 && numFila <= filasRaw.length) {
-    filasRaw.splice(numFila - 1, 1);
-    areaTrabajadores.value = filasRaw.join("\n");
-    validarListaInicial();
-  }
-}
-
-btnCorregirLista.addEventListener("click", () => {
-  zonaDuplicados.classList.add("d-none");
-  zonaResumen.classList.add("d-none");
-  limpiarZona(zonaAlertasPaso1);
-  areaTrabajadores.focus();
-});
-
-btnContinuarVal.addEventListener("click", () => {
-  const excluidos = trabajadores.filter(r => r.estado === "duplicado").length;
-  trabajadores = trabajadores.filter(r => r.estado !== "duplicado" && r.estado !== "error");
-  zonaDuplicados.classList.add("d-none");
-  limpiarZona(zonaAlertasPaso1);
-  if (excluidos > 0) {
-    const validosCnt = trabajadores.filter(r => r.estado === "pendiente").length;
-    zonaAlertasPaso1.appendChild(
-      crearAlerta("aviso", "⚠️", `Se excluyeron ${excluidos} registro${excluidos !== 1 ? "s" : ""} duplicado${excluidos !== 1 ? "s" : ""}. Se continuará con ${validosCnt} trabajador${validosCnt !== 1 ? "es" : ""} válido${validosCnt !== 1 ? "s" : ""}.`)
-    );
-  }
-  zonaIniciar.classList.remove("d-none");
-  const hayNombresV = trabajadores.some(r => r.nombreCompleto && r.nombreCompleto.trim());
-  zonaOrdenamiento.style.display = hayNombresV ? "" : "none";
-});
-
+/* ============================================================
+   11. LIMPIAR LISTA
+   ============================================================ */
 btnLimpiar.addEventListener("click", () => {
   areaTrabajadores.value = "";
   areaBloqueados.value   = "";
@@ -956,7 +700,6 @@ btnLimpiar.addEventListener("click", () => {
   contadorBloq.textContent  = "0 cédulas";
   contadorRep.textContent   = "0 cédulas";
   contadorEsp.textContent   = "0 cédulas";
-  zonaDuplicados.classList.add("d-none");
   zonaResumen.classList.add("d-none");
   zonaIniciar.classList.add("d-none");
   zonaOrdenamiento.style.display = "none";
@@ -969,7 +712,7 @@ btnLimpiar.addEventListener("click", () => {
 });
 
 /* ============================================================
-   11. ORDENAMIENTO — PASO 1
+   12. ORDENAMIENTO — PASO 1
    ============================================================ */
 btnOrdenarAZ.addEventListener("click", () => {
   trabajadores.sort((a, b) => {
@@ -978,7 +721,7 @@ btnOrdenarAZ.addEventListener("click", () => {
     return na.localeCompare(nb, "es", { sensitivity: "base" });
   });
   alertaOrdenamiento.style.display = "";
-  textoOrdenamiento.textContent = "Lista ordenada A → Z por nombre. El evaluador verá los trabajadores en este orden.";
+  textoOrdenamiento.textContent = "Lista ordenada A → Z por nombre.";
   btnOrdenarOrig.disabled = false;
   btnOrdenarAZ.classList.add("btn-orden-activo");
   btnOrdenarZA.classList.remove("btn-orden-activo");
@@ -991,7 +734,7 @@ btnOrdenarZA.addEventListener("click", () => {
     return nb.localeCompare(na, "es", { sensitivity: "base" });
   });
   alertaOrdenamiento.style.display = "";
-  textoOrdenamiento.textContent = "Lista ordenada Z → A por nombre. El evaluador verá los trabajadores en este orden.";
+  textoOrdenamiento.textContent = "Lista ordenada Z → A por nombre.";
   btnOrdenarOrig.disabled = false;
   btnOrdenarZA.classList.add("btn-orden-activo");
   btnOrdenarAZ.classList.remove("btn-orden-activo");
@@ -1006,7 +749,7 @@ btnOrdenarOrig.addEventListener("click", () => {
 });
 
 /* ============================================================
-   12. INICIAR EVALUACIÓN
+   13. INICIAR VERIFICACIÓN
    ============================================================ */
 const btnIrExportarDirecto = $("btn-ir-exportar-directo");
 if (btnIrExportarDirecto) {
@@ -1017,464 +760,204 @@ if (btnIrExportarDirecto) {
 }
 
 btnIniciar.addEventListener("click", () => {
-  trabajadores = trabajadores.filter(r => r.estado === "pendiente" || r.estado === "bloqueado" || r.estado === "valido");
+  // Excluir solo los que fueron marcados como eliminados o completamente inválidos sin datos
+  trabajadores = trabajadores.filter(r => !r.eliminado);
 
   if (trabajadores.length === 0) {
     limpiarZona(zonaAlertasPaso1);
-    zonaAlertasPaso1.appendChild(crearAlerta("error", "❌", "No hay trabajadores para evaluar."));
+    zonaAlertasPaso1.appendChild(crearAlerta("error", "❌", "No hay empleados para verificar."));
     return;
   }
 
-  indiceActual     = 0;
-  evaluadorActual  = "";
-  sesionActiva     = true;
-  ultimaValoracion = null;
-  historialDeshacer = [];
-
+  sesionActiva = true;
   mostrarPantalla(2);
-  if (modoVista === "planilla") {
-    renderizarPlanilla();
-  } else {
-    cargarTrabajador(indiceActual);
-    inputValoracion.focus();
-  }
+  filtroActual = "todos";
+  busquedaActual = "";
+  inputBuscador.value = "";
+  actualizarFiltros();
+  renderizarTablaVerificacion();
 });
 
 /* ============================================================
-   13. SELECTOR DE MODO DE VISTA
+   14. MOTOR DE DETECCIÓN DE DISCREPANCIAS
    ============================================================ */
-btnModoFicha.addEventListener("click", () => cambiarModoVista("ficha"));
-btnModoPlanilla.addEventListener("click", () => cambiarModoVista("planilla"));
 
-function cambiarModoVista(modo) {
-  modoVista = modo;
-
-  if (modo === "ficha") {
-    btnModoFicha.classList.add("activo");
-    btnModoFicha.setAttribute("aria-pressed", "true");
-    btnModoPlanilla.classList.remove("activo");
-    btnModoPlanilla.setAttribute("aria-pressed", "false");
-    vistaFicha.style.display = "";
-    vistaPlanilla.style.display = "none";
-    cargarTrabajador(indiceActual);
-    inputValoracion.focus();
-  } else {
-    btnModoPlanilla.classList.add("activo");
-    btnModoPlanilla.setAttribute("aria-pressed", "true");
-    btnModoFicha.classList.remove("activo");
-    btnModoFicha.setAttribute("aria-pressed", "false");
-    vistaPlanilla.style.display = "";
-    vistaFicha.style.display = "none";
-    renderizarPlanilla();
+/**
+ * Evalúa un registro y retorna el diagnóstico de discrepancia.
+ * @returns {{ tieneDiscrepancia: boolean, tipo: string, mensaje: string }}
+ */
+function evaluarDiscrepancia(r) {
+  // Eliminados
+  if (r.eliminado) {
+    return { tieneDiscrepancia: false, tipo: null, mensaje: "Eliminado" };
   }
+
+  // Duplicado
+  if (r.estado === "duplicado") {
+    return {
+      tieneDiscrepancia: true,
+      tipo: "duplicado",
+      mensaje: `⚠️ Cédula duplicada. Aparece en filas: ${r.errores.join(" ")}`.slice(0, 140)
+    };
+  }
+
+  // Bloqueado con puntuación
+  if (r.condicion === "bloqueado" && r.valoracionNumerica !== null && !isNaN(r.valoracionNumerica)) {
+    return {
+      tieneDiscrepancia: true,
+      tipo: "bloqueado",
+      mensaje: `🚫 BLOQUEADO pero tiene puntuación asignada (${r.valoracionNumerica}). No debe evaluarse.`
+    };
+  }
+
+  // Asignación especial con puntuación
+  if (r.condicion === "asignacion_especial" && r.valoracionNumerica !== null && !isNaN(r.valoracionNumerica)) {
+    return {
+      tieneDiscrepancia: true,
+      tipo: "especial",
+      mensaje: `🔵 ASIGNACIÓN ESPECIAL con puntuación (${r.valoracionNumerica}). No debe tener puntuación.`
+    };
+  }
+
+  // Reposo fuera de rango
+  if (r.condicion === "reposo" && r.valoracionNumerica !== null && !isNaN(r.valoracionNumerica)) {
+    if (r.valoracionNumerica < 100 || r.valoracionNumerica > 300) {
+      return {
+        tieneDiscrepancia: true,
+        tipo: "reposo",
+        mensaje: `🟡 EN REPOSO con puntuación fuera de rango (${r.valoracionNumerica}). Permitido: 100–300.`
+      };
+    }
+  }
+
+  // Normal fuera de rango
+  if (r.condicion === "normal" && r.valoracionNumerica !== null && !isNaN(r.valoracionNumerica)) {
+    if (r.valoracionNumerica < 100 || r.valoracionNumerica > 500) {
+      return {
+        tieneDiscrepancia: true,
+        tipo: "invalido",
+        mensaje: `⚠️ Puntuación fuera del rango permitido (${r.valoracionNumerica}). Normal: 100–500.`
+      };
+    }
+  }
+
+  // Error genérico
+  if (r.estado === "error" && r.errores.length > 0) {
+    return {
+      tieneDiscrepancia: true,
+      tipo: "invalido",
+      mensaje: `❌ ${r.errores[0]}`
+    };
+  }
+
+  // Bloqueado sin puntuación — es correcto (se conserva sin nota)
+  if (r.condicion === "bloqueado") {
+    return { tieneDiscrepancia: false, tipo: null, mensaje: "🚫 Bloqueado — sin puntuación (correcto)" };
+  }
+
+  // Asignación especial sin puntuación — es correcto
+  if (r.condicion === "asignacion_especial") {
+    return { tieneDiscrepancia: false, tipo: null, mensaje: "🔵 Asignación especial — sin puntuación (correcto)" };
+  }
+
+  // Pendiente sin puntuación
+  if ((r.estado === "pendiente" || r.estado === "reposo") && (r.valoracionNumerica === null || isNaN(r.valoracionNumerica))) {
+    return {
+      tieneDiscrepancia: false,
+      tipo: null,
+      mensaje: "⏳ Pendiente — sin puntuación asignada aún"
+    };
+  }
+
+  // Válido
+  if (r.estado === "valido") {
+    return { tieneDiscrepancia: false, tipo: null, mensaje: "✅ Correcto — datos completos y válidos" };
+  }
+
+  return { tieneDiscrepancia: false, tipo: null, mensaje: "—" };
 }
 
-/* ============================================================
-   14. EVALUACIÓN INDIVIDUAL — MODO FICHA
-   ============================================================ */
-function cargarTrabajador(idx) {
-  if (idx < 0 || idx >= trabajadores.length) return;
-  indiceActual = idx;
-
-  const t = trabajadores[idx];
-  const regla = REGLAS_VALORACION[t.condicion] || REGLAS_VALORACION.normal;
-  const total = trabajadores.length;
-  const totalEvaluables = trabajadores.filter(w => w.condicion !== "bloqueado").length;
-
-  // Progreso
-  actualizarProgreso();
-
-  // Info del trabajador
-  cedulaDisplay.textContent  = t.cedulaOriginal;
-  numEvalDisplay.textContent = `${idx + 1} de ${total}`;
-
-  if (t.nombreCompleto && t.nombreCompleto.trim()) {
-    campoNombreCont.style.display = "";
-    nombreDisplay.textContent = t.nombreCompleto;
-  } else {
-    campoNombreCont.style.display = "none";
-    nombreDisplay.textContent = "";
-  }
-
-  // Badge de condición
-  condicionDisplay.replaceChildren();
-  const mapaBadge = {
-    normal: "badge-normal",
-    reposo: "badge-reposo",
-    asignacion_especial: "badge-especial",
-    bloqueado: "badge-bloqueado"
-  };
-  const badge = document.createElement("span");
-  badge.className = `badge ${mapaBadge[t.condicion] || "badge-normal"}`;
-  badge.textContent = regla.etiqueta;
-  condicionDisplay.appendChild(badge);
-
-  rangoDisplay.textContent = regla.rangoTexto;
-
-  // Formulario
-  if (t.condicion === "bloqueado") {
-    panelBloqueado.classList.remove("d-none");
-    formEval.style.display = "none";
-    zonaChipsVal.style.display = "none";
-    btnGuardarSig.disabled = true;
-  } else {
-    panelBloqueado.classList.add("d-none");
-    formEval.style.display = "block";
-    zonaChipsVal.style.display = "block";
-    btnGuardarSig.disabled = false;
-
-    inputValoracion.value = t.valoracionOriginal || "";
-    inputEvaluador.value  = t.cedulaEvaluadorOriginal || evaluadorActual;
-
-    hintValoracion.textContent = `Rango permitido: ${regla.rangoTexto}`;
-
-    // Actualizar chip Máx
-    chipMax.textContent = `Máx (${regla.maximo})`;
-    chipMax.dataset.val = regla.maximo;
-
-    // Habilitar/deshabilitar chips según condición
-    document.querySelectorAll(".chip-val[data-val]").forEach(btn => {
-      const val = parseInt(btn.dataset.val, 10);
-      const fuera = val > regla.maximo || val < regla.minimo;
-      btn.disabled = fuera;
-      btn.title = fuera ? `Fuera del rango permitido (${regla.rangoTexto})` : "";
-    });
-
-    // Chip repetir
-    chipRepeat.disabled = ultimaValoracion === null;
-
-    limpiarErrores();
-    inputValoracion.focus();
-  }
-
-  // Alertas del trabajador
-  limpiarZona(zonaAlertasPaso2);
-  t.advertencias.forEach(adv => {
-    zonaAlertasPaso2.appendChild(crearAlerta("aviso", "⚠️", adv));
-  });
-
-  btnAnterior.disabled = idx === 0;
-
-  // Evaluadores frecuentes
-  actualizarEvaluadoresFrecuentes();
-}
-
-function actualizarProgreso() {
-  const total    = trabajadores.length;
-  const evaluados = trabajadores.filter(w => w.estado === "valido" || w.estado === "omitido").length;
-  const pct      = total > 0 ? Math.round((evaluados / total) * 100) : 0;
-
-  const totalEvaluables = trabajadores.filter(w => w.condicion !== "bloqueado").length;
-  textoProgresoEval.textContent = `Evaluación ${indiceActual + 1} de ${total}${totalEvaluables !== total ? ` (${totalEvaluables} evaluables)` : ""}`;
-  barraProgreso.style.width = `${pct}%`;
-  barraProgreso.classList.toggle("completa", pct === 100);
-  barraCont.setAttribute("aria-valuenow", pct);
-  textoPorcentaje.textContent = `${evaluados} de ${total} procesados (${pct}%)`;
-}
-
-function limpiarErrores() {
-  errorValoracion.classList.remove("visible");
-  errorEvaluador.classList.remove("visible");
-  inputValoracion.classList.remove("input-error", "input-ok");
-  inputEvaluador.classList.remove("input-error", "input-ok");
-}
-
-/* --- Chips de valoración rápida --- */
-document.querySelectorAll(".chip-val[data-val]").forEach(btn => {
-  btn.addEventListener("click", () => {
-    if (btn.disabled) return;
-    inputValoracion.value = btn.dataset.val;
-    validarCampoValoracion(false);
-    inputValoracion.focus();
-  });
-});
-
-chipMax.addEventListener("click", () => {
-  const t = trabajadores[indiceActual];
-  if (!t || t.condicion === "bloqueado") return;
-  const regla = REGLAS_VALORACION[t.condicion] || REGLAS_VALORACION.normal;
-  inputValoracion.value = regla.maximo;
-  validarCampoValoracion(false);
-  inputValoracion.focus();
-});
-
-chipRepeat.addEventListener("click", () => {
-  if (ultimaValoracion !== null) {
-    inputValoracion.value = ultimaValoracion;
-    validarCampoValoracion(false);
-    inputValoracion.focus();
-  }
-});
-
-/* --- Validación en tiempo real --- */
-inputValoracion.addEventListener("input", () => validarCampoValoracion(false));
-inputEvaluador.addEventListener("input",  () => {
-  validarCampoEvaluador(false);
-  actualizarEvaluadoresFrecuentes();
-});
-
-function validarCampoValoracion(mostrarErr = true) {
-  const t = trabajadores[indiceActual];
-  if (!t) return false;
-  const regla = REGLAS_VALORACION[t.condicion] || REGLAS_VALORACION.normal;
-  const val = inputValoracion.value.trim();
-
-  if (!val) {
-    if (mostrarErr) mostrarError_(errorValoracion, "La valoración es obligatoria.");
-    inputValoracion.classList.remove("input-ok");
-    inputValoracion.classList.toggle("input-error", mostrarErr);
-    return false;
-  }
-
-  const num = parsearNumero(val);
-  if (isNaN(num)) {
-    if (mostrarErr) mostrarError_(errorValoracion, "La valoración debe ser un número válido.");
-    inputValoracion.classList.remove("input-ok");
-    inputValoracion.classList.toggle("input-error", mostrarErr);
-    return false;
-  }
-
-  if (num < regla.minimo || num > regla.maximo) {
-    if (mostrarErr) mostrarError_(errorValoracion, `La valoración debe estar entre ${regla.minimo} y ${regla.maximo}.`);
-    inputValoracion.classList.remove("input-ok");
-    inputValoracion.classList.toggle("input-error", mostrarErr);
-    return false;
-  }
-
-  errorValoracion.classList.remove("visible");
-  inputValoracion.classList.remove("input-error");
-  inputValoracion.classList.add("input-ok");
+/**
+ * Determina si un registro es "correcto" a efectos de filtro.
+ */
+function esCorrecto(r) {
+  if (r.eliminado) return false;
+  const d = evaluarDiscrepancia(r);
+  if (d.tieneDiscrepancia) return false;
+  // Pendiente sin puntuación no es "correcto" aún
+  if ((r.estado === "pendiente" || r.estado === "reposo") && (r.valoracionNumerica === null || isNaN(r.valoracionNumerica))) return false;
   return true;
 }
 
-function validarCampoEvaluador(mostrarErr = true) {
-  const val = normalizarCedula(inputEvaluador.value);
-
-  if (!val) {
-    if (mostrarErr) mostrarError_(errorEvaluador, "Debe indicar la cédula del evaluador antes de guardar.");
-    inputEvaluador.classList.remove("input-ok");
-    inputEvaluador.classList.toggle("input-error", mostrarErr);
-    return false;
-  }
-
-  if (!esFormatoValido(val)) {
-    if (mostrarErr) mostrarError_(errorEvaluador, "La cédula del evaluador no tiene un formato válido.");
-    inputEvaluador.classList.remove("input-ok");
-    inputEvaluador.classList.toggle("input-error", mostrarErr);
-    return false;
-  }
-
-  errorEvaluador.classList.remove("visible");
-  inputEvaluador.classList.remove("input-error");
-  inputEvaluador.classList.add("input-ok");
-  return true;
-}
-
-function mostrarError_(el, msg) {
-  el.textContent = msg;
-  el.classList.add("visible");
-}
-
-/* --- Guardar evaluación + Deshacer --- */
-function guardarYSiguiente() {
-  const t = trabajadores[indiceActual];
-  if (!t) return;
-
-  if (t.condicion === "bloqueado") {
-    avanzarSiguiente();
-    return;
-  }
-
-  const valOk  = validarCampoValoracion(true);
-  const evalOk = validarCampoEvaluador(true);
-  if (!valOk || !evalOk) return;
-
-  // Guardar snapshot en pila de deshacer
-  historialDeshacer.push({
-    idx: indiceActual,
-    snapshot: { ...t }
-  });
-  if (historialDeshacer.length > 30) historialDeshacer.shift();
-
-  const num = parsearNumero(inputValoracion.value.trim());
-  ultimaValoracion                  = inputValoracion.value.trim().replace(",", ".");
-  t.valoracionOriginal              = ultimaValoracion;
-  t.valoracionNumerica              = num;
-  t.cedulaEvaluadorOriginal         = inputEvaluador.value.trim();
-  t.cedulaEvaluadorNormalizada      = normalizarCedula(inputEvaluador.value);
-  t.estado                          = "valido";
-  t.errores                         = [];
-
-  evaluadorActual = t.cedulaEvaluadorOriginal;
-  registrarEvaluadorFrecuente(evaluadorActual);
-
-  chipRepeat.disabled = false;
-  avanzarSiguiente();
-}
-
-function deshacerUltimaAccion() {
-  if (historialDeshacer.length === 0) return;
-  const { idx, snapshot } = historialDeshacer.pop();
-  Object.assign(trabajadores[idx], snapshot);
-  indiceActual = idx;
-  cargarTrabajador(indiceActual);
-  limpiarZona(zonaAlertasPaso2);
-  zonaAlertasPaso2.appendChild(crearAlerta("aviso", "↩️", "Última valoración deshecha. Puede corregirla."));
-}
-
-function avanzarSiguiente() {
-  const siguiente = indiceActual + 1;
-  if (siguiente >= trabajadores.length) {
-    const pendientes = trabajadores.filter(w => w.estado === "pendiente").length;
-    if (pendientes > 0) {
-      limpiarZona(zonaAlertasPaso2);
-      zonaAlertasPaso2.appendChild(
-        crearAlerta("aviso", "⚠️", `Quedan ${pendientes} trabajador${pendientes !== 1 ? "es" : ""} sin evaluar. Puede finalizar o volver atrás para completarlos.`)
-      );
-    } else {
-      abrirPantallaExportacion();
-    }
-    return;
-  }
-  indiceActual = siguiente;
-  cargarTrabajador(indiceActual);
-  inputValoracion.focus();
-}
-
-function avanzarAnterior() {
-  if (indiceActual > 0) {
-    indiceActual--;
-    cargarTrabajador(indiceActual);
-    inputValoracion.focus();
-  }
-}
-
-/* --- Evaluadores frecuentes --- */
-function registrarEvaluadorFrecuente(ced) {
-  if (!ced) return;
-  evaluadoresFrecuentes = [ced, ...evaluadoresFrecuentes.filter(e => e !== ced)].slice(0, 3);
-}
-
-function actualizarEvaluadoresFrecuentes() {
-  if (evaluadoresFrecuentes.length === 0) {
-    zonaEvalFrecuentes.style.display = "none";
-    return;
-  }
-  zonaEvalFrecuentes.style.display = "";
-  listaEvalFrecuentes.replaceChildren();
-  evaluadoresFrecuentes.forEach(ev => {
-    const btn = document.createElement("button");
-    btn.className = "chip-eval";
-    btn.type = "button";
-    btn.textContent = ev;
-    btn.title = `Usar evaluador: ${ev}`;
-    btn.addEventListener("click", () => {
-      inputEvaluador.value = ev;
-      validarCampoEvaluador(false);
-    });
-    listaEvalFrecuentes.appendChild(btn);
-  });
-}
-
-/* --- Botones paso 2 ficha --- */
-btnGuardarSig.addEventListener("click", guardarYSiguiente);
-btnAnterior.addEventListener("click",   avanzarAnterior);
-
-btnOmitir.addEventListener("click", () => {
-  const t = trabajadores[indiceActual];
-  if (t) {
-    t.estado  = "omitido";
-    t.omitido = true;
-    t.errores = ["Omitido por el evaluador en esta sesión."];
-  }
-  avanzarSiguiente();
-});
-
-btnFinalizar.addEventListener("click", () => {
-  const pendientes = trabajadores.filter(w => w.estado === "pendiente").length;
-  if (pendientes > 0) {
-    abrirModal(
-      "¿Finalizar con registros pendientes?",
-      `Hay ${pendientes} trabajador${pendientes !== 1 ? "es" : ""} sin evaluar. Estos aparecerán en el reporte de incidencias y NO serán exportados. ¿Desea continuar?`,
-      abrirPantallaExportacion
-    );
-  } else {
-    abrirPantallaExportacion();
-  }
-});
-
-btnDescartarEval.addEventListener("click", () => {
-  abrirModal(
-    "Descartar sesión",
-    "Se eliminarán todos los datos de la sesión actual. Esta acción no se puede deshacer. ¿Continuar?",
-    descartarSesion
-  );
-});
-
-/* --- Ir al siguiente pendiente --- */
-btnIrPendiente.addEventListener("click", () => {
-  const idx = trabajadores.findIndex(t => t.estado === "pendiente");
-  if (idx === -1) {
-    alert("No hay trabajadores pendientes por evaluar.");
-    return;
-  }
-  if (modoVista === "ficha") {
-    cargarTrabajador(idx);
-    inputValoracion.focus();
-  } else {
-    const fila = document.querySelector(`[data-planilla-idx="${idx}"]`);
-    if (fila) {
-      fila.scrollIntoView({ behavior: "smooth", block: "center" });
-      const inp = fila.querySelector(".planilla-input");
-      if (inp) inp.focus();
-    }
-  }
-});
-
 /* ============================================================
-   15. MODO PLANILLA RÁPIDA
+   15. RENDERIZADO DE LA TABLA DE VERIFICACIÓN
    ============================================================ */
-function renderizarPlanilla() {
-  cuerpoTablaPlanilla.replaceChildren();
+function renderizarTablaVerificacion() {
+  cuerpoTablaVerificacion.replaceChildren();
 
-  // Sincronizar evaluador
-  inputEvaluadorPlanilla.value = evaluadorActual;
+  const q = busquedaActual.toLowerCase();
 
-  trabajadores.forEach((t, idx) => {
-    if (t.condicion === "bloqueado") {
-      const tr = crearFilaPlanilla(t, idx, true);
-      cuerpoTablaPlanilla.appendChild(tr);
-      return;
+  const registrosFiltrados = trabajadores.filter(r => {
+    if (r.eliminado) return false;
+
+    // Filtro de búsqueda
+    if (q) {
+      const cedMatch = r.cedulaOriginal.toLowerCase().includes(q);
+      const nomMatch = r.nombreCompleto && r.nombreCompleto.toLowerCase().includes(q);
+      if (!cedMatch && !nomMatch) return false;
     }
-    const tr = crearFilaPlanilla(t, idx, false);
-    cuerpoTablaPlanilla.appendChild(tr);
+
+    // Filtro de estado
+    const diag = evaluarDiscrepancia(r);
+    if (filtroActual === "correctos") return esCorrecto(r);
+    if (filtroActual === "discrepancias") return diag.tieneDiscrepancia;
+    return true;
   });
 
-  actualizarProgreso();
+  if (registrosFiltrados.length === 0) {
+    tablaVaciaMsg.style.display = "";
+  } else {
+    tablaVaciaMsg.style.display = "none";
+  }
+
+  registrosFiltrados.forEach((r, idx) => {
+    const tr = crearFilaVerificacion(r, idx);
+    cuerpoTablaVerificacion.appendChild(tr);
+  });
+
+  actualizarContadoresEstado();
 }
 
-function crearFilaPlanilla(t, idx, bloqueado) {
-  const regla = REGLAS_VALORACION[t.condicion] || REGLAS_VALORACION.normal;
+function crearFilaVerificacion(r, idx) {
+  const diag   = evaluarDiscrepancia(r);
+  const regla  = REGLAS_VALORACION[r.condicion] || REGLAS_VALORACION.normal;
+
   const tr = document.createElement("tr");
-  tr.dataset.planillaIdx = idx;
+  tr.dataset.cedNorm = r.cedulaNormalizada;
 
-  // Clase de estado
-  if (t.estado === "valido") tr.classList.add("fila-ok");
-  if (t.condicion === "bloqueado") tr.classList.add("fila-error-val");
+  if (diag.tieneDiscrepancia) {
+    tr.classList.add("fila-discrepancia");
+  } else if (esCorrecto(r)) {
+    tr.classList.add("fila-correcta");
+  }
 
-  // # fila
+  // # fila original
   const tdNum = document.createElement("td");
-  tdNum.textContent = idx + 1;
+  const numBadge = document.createElement("span");
+  numBadge.className = "badge-num-fila";
+  numBadge.textContent = "#" + r.numeroFilaOriginal;
+  tdNum.appendChild(numBadge);
   tr.appendChild(tdNum);
 
   // Cédula
   const tdCed = document.createElement("td");
-  tdCed.textContent = t.cedulaOriginal;
+  tdCed.textContent = r.cedulaOriginal;
+  tdCed.style.fontWeight = "700";
   tr.appendChild(tdCed);
 
   // Nombre
   const tdNom = document.createElement("td");
-  tdNom.textContent = t.nombreCompleto || "—";
+  tdNom.textContent = r.nombreCompleto || "—";
   tdNom.style.color = "var(--txt-muted)";
   tdNom.style.fontSize = ".8rem";
   tr.appendChild(tdNom);
@@ -1486,65 +969,76 @@ function crearFilaPlanilla(t, idx, bloqueado) {
     asignacion_especial: "badge-especial", bloqueado: "badge-bloqueado"
   };
   const badge = document.createElement("span");
-  badge.className = `badge ${mapaBadge[t.condicion] || "badge-normal"}`;
+  badge.className = `badge ${mapaBadge[r.condicion] || "badge-normal"}`;
   badge.textContent = regla.etiqueta;
   tdCond.appendChild(badge);
   tr.appendChild(tdCond);
 
-  // Rango
-  const tdRango = document.createElement("td");
-  tdRango.textContent = regla.rangoTexto;
-  tdRango.style.fontSize = ".78rem";
-  tdRango.style.color = "var(--txt-muted)";
-  tr.appendChild(tdRango);
-
-  // Input de valoración
+  // Puntuación (editable si la condición lo permite)
   const tdVal = document.createElement("td");
-  if (bloqueado) {
+  const noEvaluable = !regla.permitido;
+  if (noEvaluable) {
     const spanB = document.createElement("span");
     spanB.textContent = "🚫";
-    spanB.style.color = "var(--red)";
+    spanB.style.color = "var(--txt-muted)";
+    spanB.title = regla.mensajeError;
     tdVal.appendChild(spanB);
+    if (r.valoracionNumerica !== null && !isNaN(r.valoracionNumerica)) {
+      const numSpan = document.createElement("span");
+      numSpan.textContent = ` ${r.valoracionNumerica}`;
+      numSpan.style.color = "var(--red-text)";
+      numSpan.style.fontWeight = "700";
+      numSpan.style.fontSize = ".8rem";
+      tdVal.appendChild(numSpan);
+    }
   } else {
     const inp = document.createElement("input");
     inp.type = "text";
-    inp.className = "planilla-input";
-    inp.value = t.valoracionOriginal || "";
+    inp.className = "verif-input";
+    inp.value = r.valoracionOriginal || "";
     inp.placeholder = `${regla.minimo}–${regla.maximo}`;
     inp.autocomplete = "off";
     inp.inputMode = "decimal";
-    inp.setAttribute("aria-label", `Valoración para ${t.cedulaOriginal}`);
-    inp.dataset.planillaIdx = idx;
+    inp.setAttribute("aria-label", `Puntuación para ${r.cedulaOriginal}`);
 
-    // Clase inicial si ya tiene valor
-    if (t.estado === "valido") inp.classList.add("ok");
+    // Clase inicial
+    if (r.estado === "valido") inp.classList.add("ok");
+    if (diag.tieneDiscrepancia && r.valoracionNumerica !== null) inp.classList.add("err");
 
     inp.addEventListener("input", () => {
-      const num = parsearNumero(inp.value.trim());
-      if (!inp.value.trim()) {
+      const val = inp.value.trim();
+      const num = parsearNumero(val);
+      if (!val) {
         inp.classList.remove("ok", "err");
-        tr.classList.remove("fila-ok", "fila-error-val");
+        r.valoracionOriginal = "";
+        r.valoracionNumerica = null;
+        if (r.estado === "valido") r.estado = "pendiente";
       } else if (isNaN(num) || num < regla.minimo || num > regla.maximo) {
         inp.classList.remove("ok");
         inp.classList.add("err");
-        tr.classList.remove("fila-ok");
-        tr.classList.add("fila-error-val");
+        r.valoracionNumerica = num;
+        r.valoracionOriginal = val;
       } else {
         inp.classList.remove("err");
         inp.classList.add("ok");
-        tr.classList.remove("fila-error-val");
-        tr.classList.add("fila-ok");
+        r.valoracionOriginal = val;
+        r.valoracionNumerica = num;
+        r.errores = r.errores.filter(e => !e.includes("rango"));
+        // Si ya tiene evaluador, marcar como válido
+        if (r.cedulaEvaluadorNormalizada && esFormatoValido(r.cedulaEvaluadorNormalizada)) {
+          r.estado = "valido";
+        }
       }
+      refrescarFilaDiagnostico(tr, r);
     });
 
-    // Navegación por teclado en planilla
+    // Enter pasa al siguiente input de puntuación
     inp.addEventListener("keydown", e => {
-      if (e.key === "Enter" || e.key === "ArrowDown") {
+      if (e.key === "Enter") {
         e.preventDefault();
-        irASiguienteFilaPlanilla(idx);
-      } else if (e.key === "ArrowUp") {
-        e.preventDefault();
-        irAFilaPlanillaAnterior(idx);
+        const inputs = Array.from(document.querySelectorAll(".verif-input"));
+        const ci = inputs.indexOf(inp);
+        if (ci < inputs.length - 1) inputs[ci + 1].focus();
       }
     });
 
@@ -1552,222 +1046,547 @@ function crearFilaPlanilla(t, idx, bloqueado) {
   }
   tr.appendChild(tdVal);
 
-  // Estado
-  const tdEstado = document.createElement("td");
-  const mapaEstado = {
-    pendiente: "badge-pendiente", valido: "badge-valido",
-    error: "badge-error", omitido: "badge-omitido", bloqueado: "badge-bloqueado"
-  };
-  const badgeEst = document.createElement("span");
-  badgeEst.className = `badge ${mapaEstado[t.estado] || "badge-pendiente"}`;
-  badgeEst.textContent = t.estado;
-  badgeEst.dataset.estadoBadgeIdx = idx;
-  tdEstado.appendChild(badgeEst);
-  tr.appendChild(tdEstado);
+  // Evaluador (editable)
+  const tdEval = document.createElement("td");
+  const evalInp = document.createElement("input");
+  evalInp.type = "text";
+  evalInp.className = "verif-eval-input";
+  evalInp.value = r.cedulaEvaluadorOriginal || "";
+  evalInp.placeholder = "Cédula eval.";
+  evalInp.autocomplete = "off";
+  evalInp.setAttribute("aria-label", `Evaluador de ${r.cedulaOriginal}`);
+  evalInp.addEventListener("change", () => {
+    r.cedulaEvaluadorOriginal    = evalInp.value.trim();
+    r.cedulaEvaluadorNormalizada = normalizarCedula(evalInp.value);
+    // Si tiene puntuación válida, marcar como válido
+    if (r.cedulaEvaluadorNormalizada && esFormatoValido(r.cedulaEvaluadorNormalizada) &&
+        r.valoracionNumerica !== null && !isNaN(r.valoracionNumerica) &&
+        r.valoracionNumerica >= regla.minimo && r.valoracionNumerica <= regla.maximo &&
+        regla.permitido) {
+      r.estado = "valido";
+      r.errores = [];
+    }
+    refrescarFilaDiagnostico(tr, r);
+  });
+  tdEval.appendChild(evalInp);
+  tr.appendChild(tdEval);
+
+  // Diagnóstico y acciones
+  const tdDiag = document.createElement("td");
+  tdDiag.className = "celda-diagnostico";
+  construirCeldaDiagnostico(tdDiag, r, tr);
+  tr.appendChild(tdDiag);
 
   return tr;
 }
 
-function irASiguienteFilaPlanilla(idxActual) {
-  for (let i = idxActual + 1; i < trabajadores.length; i++) {
-    if (trabajadores[i].condicion !== "bloqueado") {
-      const siguienteFila = document.querySelector(`[data-planilla-idx="${i}"] .planilla-input`);
-      if (siguienteFila) { siguienteFila.focus(); return; }
-    }
+/**
+ * Rellena la celda de diagnóstico y acciones para un registro.
+ */
+function construirCeldaDiagnostico(tdDiag, r, tr) {
+  tdDiag.replaceChildren();
+  const diag = evaluarDiscrepancia(r);
+
+  const msgEl = document.createElement("div");
+  msgEl.className = diag.tieneDiscrepancia ? "diagnostico-msg" : "diagnostico-msg ok-msg";
+  msgEl.textContent = diag.mensaje;
+  tdDiag.appendChild(msgEl);
+
+  if (!diag.tieneDiscrepancia) return;
+
+  const accionesEl = document.createElement("div");
+  accionesEl.className = "diagnostico-acciones";
+
+  // Botones según el tipo de discrepancia
+  switch (diag.tipo) {
+    case "duplicado":
+      crearBtnResolver(accionesEl, "⚡ Fusionar", "btn-resolver-corregir", () => {
+        fusionarDuplicados(r);
+        renderizarTablaVerificacion();
+      });
+      crearBtnResolver(accionesEl, "Detalle / Resolver", "btn-resolver-detalle", () => {
+        abrirModalResolucion(r, diag, tr, tdDiag);
+      });
+      crearBtnResolver(accionesEl, "🗑️ Eliminar", "btn-resolver-eliminar", () => {
+        eliminarRegistro(r, tr);
+      });
+      break;
+
+    case "bloqueado":
+      crearBtnResolver(accionesEl, "🗑️ Eliminar", "btn-resolver-eliminar", () => {
+        eliminarRegistro(r, tr);
+      });
+      crearBtnResolver(accionesEl, "🧹 Conservar sin puntuación", "btn-resolver-conservar", () => {
+        limpiarPuntuacion(r, tr, tdDiag);
+      });
+      break;
+
+    case "reposo":
+      crearBtnResolver(accionesEl, "📉 Ajustar a 300", "btn-resolver-corregir", () => {
+        corregirReposo(r, tr, tdDiag, 300);
+      });
+      crearBtnResolver(accionesEl, "🗑️ Eliminar", "btn-resolver-eliminar", () => {
+        eliminarRegistro(r, tr);
+      });
+      crearBtnResolver(accionesEl, "Detalle", "btn-resolver-detalle", () => {
+        abrirModalResolucion(r, diag, tr, tdDiag);
+      });
+      break;
+
+    case "especial":
+      crearBtnResolver(accionesEl, "🧹 Conservar sin puntuación", "btn-resolver-conservar", () => {
+        limpiarPuntuacion(r, tr, tdDiag);
+      });
+      crearBtnResolver(accionesEl, "🗑️ Eliminar", "btn-resolver-eliminar", () => {
+        eliminarRegistro(r, tr);
+      });
+      break;
+
+    case "invalido":
+    default:
+      crearBtnResolver(accionesEl, "🗑️ Eliminar", "btn-resolver-eliminar", () => {
+        eliminarRegistro(r, tr);
+      });
+      crearBtnResolver(accionesEl, "Detalle", "btn-resolver-detalle", () => {
+        abrirModalResolucion(r, diag, tr, tdDiag);
+      });
+      break;
   }
+
+  tdDiag.appendChild(accionesEl);
 }
 
-function irAFilaPlanillaAnterior(idxActual) {
-  for (let i = idxActual - 1; i >= 0; i--) {
-    if (trabajadores[i].condicion !== "bloqueado") {
-      const filaAnterior = document.querySelector(`[data-planilla-idx="${i}"] .planilla-input`);
-      if (filaAnterior) { filaAnterior.focus(); return; }
-    }
-  }
+function crearBtnResolver(parent, texto, claseExtra, handler) {
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.className = `btn-resolver ${claseExtra}`;
+  btn.textContent = texto;
+  btn.addEventListener("click", handler);
+  parent.appendChild(btn);
 }
 
-btnGuardarPlanilla.addEventListener("click", () => {
-  const evPlanilla = normalizarCedula(inputEvaluadorPlanilla.value);
-  if (!evPlanilla || !esFormatoValido(evPlanilla)) {
-    errorEvaluadorPlanilla.textContent = "Debe indicar la cédula del evaluador global antes de guardar.";
-    errorEvaluadorPlanilla.classList.add("visible");
-    inputEvaluadorPlanilla.focus();
-    return;
-  }
-  errorEvaluadorPlanilla.classList.remove("visible");
+/**
+ * Refresca solo la parte visual de diagnóstico de una fila existente.
+ */
+function refrescarFilaDiagnostico(tr, r) {
+  const diag = evaluarDiscrepancia(r);
 
-  let guardados = 0;
-  let errores   = 0;
-
-  document.querySelectorAll(".planilla-input").forEach(inp => {
-    const idx = parseInt(inp.dataset.planillaIdx, 10);
-    const t = trabajadores[idx];
-    if (!t || t.condicion === "bloqueado") return;
-
-    const valStr = inp.value.trim();
-    if (!valStr) return;
-
-    const regla = REGLAS_VALORACION[t.condicion] || REGLAS_VALORACION.normal;
-    const num = parsearNumero(valStr);
-
-    if (isNaN(num) || num < regla.minimo || num > regla.maximo) {
-      errores++;
-      return;
-    }
-
-    t.valoracionOriginal         = valStr.replace(",", ".");
-    t.valoracionNumerica         = num;
-    t.cedulaEvaluadorOriginal    = inputEvaluadorPlanilla.value.trim();
-    t.cedulaEvaluadorNormalizada = evPlanilla;
-    t.estado                     = "valido";
-    t.errores                    = [];
-    guardados++;
-  });
-
-  evaluadorActual = inputEvaluadorPlanilla.value.trim();
-  registrarEvaluadorFrecuente(evaluadorActual);
-
-  limpiarZona(zonaAlertasPaso2);
-  if (errores > 0) {
-    zonaAlertasPaso2.appendChild(
-      crearAlerta("aviso", "⚠️", `${errores} fila${errores !== 1 ? "s" : ""} con valores fuera de rango no fueron guardadas.`)
-    );
-  }
-  if (guardados > 0) {
-    zonaAlertasPaso2.appendChild(
-      crearAlerta("exito", "✅", `${guardados} valoración${guardados !== 1 ? "es" : ""} guardada${guardados !== 1 ? "s" : ""} correctamente.`)
-    );
+  // Actualizar clases de la fila
+  tr.classList.remove("fila-discrepancia", "fila-correcta");
+  if (diag.tieneDiscrepancia) {
+    tr.classList.add("fila-discrepancia");
+  } else if (esCorrecto(r)) {
+    tr.classList.add("fila-correcta");
   }
 
-  renderizarPlanilla();
-  actualizarProgreso();
-});
+  // Actualizar celda de diagnóstico
+  const tdDiag = tr.querySelector(".celda-diagnostico");
+  if (tdDiag) construirCeldaDiagnostico(tdDiag, r, tr);
+
+  actualizarContadoresEstado();
+}
 
 /* ============================================================
-   16. BUSCADOR DE TRABAJADORES — PASO 2
+   16. ACCIONES DE RESOLUCIÓN
    ============================================================ */
-inputBuscador.addEventListener("input", () => {
-  const q = inputBuscador.value.trim().toLowerCase();
-  if (!q || !sesionActiva) {
-    buscadorResultados.style.display = "none";
-    return;
+
+function eliminarRegistro(r, tr) {
+  r.eliminado = true;
+  r.estado = "eliminado";
+  tr.remove();
+  actualizarContadoresEstado();
+  // Mostrar acciones masivas si quedan discrepancias
+  verificarAccionesMasivas();
+}
+
+function limpiarPuntuacion(r, tr, tdDiag) {
+  r.valoracionOriginal = "";
+  r.valoracionNumerica = null;
+  r.errores = [];
+  if (r.condicion === "bloqueado") r.estado = "bloqueado";
+  else if (r.condicion === "asignacion_especial") r.estado = "asignacion_especial";
+
+  // Limpiar el input de puntuación en la fila
+  const inp = tr.querySelector(".verif-input");
+  if (inp) {
+    inp.value = "";
+    inp.classList.remove("ok", "err");
+  }
+  refrescarFilaDiagnostico(tr, r);
+}
+
+function corregirReposo(r, tr, tdDiag, valorNuevo) {
+  r.valoracionOriginal = String(valorNuevo);
+  r.valoracionNumerica = valorNuevo;
+  r.errores = r.errores.filter(e => !e.includes("rango"));
+  if (r.cedulaEvaluadorNormalizada && esFormatoValido(r.cedulaEvaluadorNormalizada)) {
+    r.estado = "valido";
   }
 
-  const resultados = trabajadores
-    .map((t, idx) => ({ t, idx }))
-    .filter(({ t }) =>
-      t.cedulaOriginal.toLowerCase().includes(q) ||
-      t.cedulaNormalizada.includes(normalizarCedula(q)) ||
-      (t.nombreCompleto && t.nombreCompleto.toLowerCase().includes(q))
-    )
-    .slice(0, 8);
-
-  if (resultados.length === 0) {
-    buscadorResultados.style.display = "none";
-    return;
+  const inp = tr.querySelector(".verif-input");
+  if (inp) {
+    inp.value = String(valorNuevo);
+    inp.classList.remove("err");
+    inp.classList.add("ok");
   }
+  refrescarFilaDiagnostico(tr, r);
+}
 
-  buscadorResultados.replaceChildren();
-  resultados.forEach(({ t, idx }) => {
-    const div = document.createElement("div");
-    div.className = "buscador-item";
-    div.setAttribute("role", "option");
-    div.tabIndex = 0;
+function fusionarDuplicados(r) {
+  const duplicados = trabajadores.filter(t => t.cedulaNormalizada === r.cedulaNormalizada && !t.eliminado);
+  if (duplicados.length <= 1) return;
 
-    const ced = document.createElement("span");
-    ced.className = "buscador-item-ced";
-    ced.textContent = t.cedulaOriginal;
+  let mejorNombre = r.nombreCompleto || "";
+  let mejorValoracion = r.valoracionOriginal || "";
+  let mejorValoracionNum = r.valoracionNumerica;
+  let mejorEvaluadorOrig = r.cedulaEvaluadorOriginal || "";
+  let mejorEvaluadorNorm = r.cedulaEvaluadorNormalizada || "";
+  let mejorCondicion = r.condicion || "normal";
 
-    const nom = document.createElement("span");
-    nom.className = "buscador-item-nom";
-    nom.textContent = t.nombreCompleto ? ` · ${t.nombreCompleto}` : "";
+  duplicados.forEach(d => {
+    if (!mejorNombre && d.nombreCompleto) mejorNombre = d.nombreCompleto;
+    if ((mejorValoracionNum === null || isNaN(mejorValoracionNum)) && d.valoracionNumerica !== null && !isNaN(d.valoracionNumerica)) {
+      mejorValoracion = d.valoracionOriginal;
+      mejorValoracionNum = d.valoracionNumerica;
+    }
+    if (!mejorEvaluadorNorm && d.cedulaEvaluadorNormalizada) {
+      mejorEvaluadorOrig = d.cedulaEvaluadorOriginal;
+      mejorEvaluadorNorm = d.cedulaEvaluadorNormalizada;
+    }
+    if (d.condicion === "bloqueado") mejorCondicion = "bloqueado";
+    else if (d.condicion === "reposo" && mejorCondicion !== "bloqueado") mejorCondicion = "reposo";
+    else if (d.condicion === "asignacion_especial" && mejorCondicion !== "bloqueado" && mejorCondicion !== "reposo") mejorCondicion = "asignacion_especial";
+  });
 
-    const cond = document.createElement("span");
-    cond.className = `badge ${idx === indiceActual ? "badge-valido" : "badge-pendiente"}`;
-    cond.style.cssText = "float:right; font-size:.68rem;";
-    cond.textContent = `#${idx + 1} · ${t.estado}`;
+  r.nombreCompleto = mejorNombre;
+  r.valoracionOriginal = mejorValoracion;
+  r.valoracionNumerica = mejorValoracionNum;
+  r.cedulaEvaluadorOriginal = mejorEvaluadorOrig;
+  r.cedulaEvaluadorNormalizada = mejorEvaluadorNorm;
+  r.condicion = mejorCondicion;
+  r.advertencias = [];
+  r.errores = [];
 
-    div.appendChild(ced);
-    div.appendChild(nom);
-    div.appendChild(cond);
+  duplicados.forEach(d => {
+    if (d !== r) {
+      d.eliminado = true;
+      d.estado = "eliminado";
+    }
+  });
 
-    const irA = () => {
-      buscadorResultados.style.display = "none";
-      inputBuscador.value = "";
-      if (modoVista === "ficha") {
-        cargarTrabajador(idx);
-        inputValoracion.focus();
-      } else {
-        const fila = document.querySelector(`[data-planilla-idx="${idx}"] .planilla-input`);
-        if (fila) { fila.scrollIntoView({ behavior: "smooth", block: "center" }); fila.focus(); }
-      }
-    };
+  const regla = REGLAS_VALORACION[r.condicion] || REGLAS_VALORACION.normal;
+  if (!regla.permitido) {
+    r.estado = r.condicion;
+    if (r.valoracionNumerica !== null) r.valoracionNumerica = null;
+  } else if (r.valoracionNumerica !== null && !isNaN(r.valoracionNumerica) &&
+             r.valoracionNumerica >= regla.minimo && r.valoracionNumerica <= regla.maximo &&
+             r.cedulaEvaluadorNormalizada && esFormatoValido(r.cedulaEvaluadorNormalizada)) {
+    r.estado = "valido";
+  } else {
+    r.estado = "pendiente";
+  }
+}
 
-    div.addEventListener("click", irA);
-    div.addEventListener("keydown", e => {
-      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); irA(); }
+/* ============================================================
+   17. MODAL DE RESOLUCIÓN DETALLADA
+   ============================================================ */
+function abrirModalResolucion(r, diag, tr, tdDiag) {
+  const mapaTipoClase = {
+    duplicado: "tipo-duplicado",
+    bloqueado: "tipo-bloqueado",
+    reposo:    "tipo-reposo",
+    especial:  "tipo-especial",
+    invalido:  "tipo-invalido"
+  };
+  const mapaTipoLabel = {
+    duplicado: "Duplicado",
+    bloqueado: "Bloqueado",
+    reposo:    "En reposo",
+    especial:  "Asignación especial",
+    invalido:  "Discrepancia"
+  };
+
+  modalResTipoBadge.className = `modal-res-tipo ${mapaTipoClase[diag.tipo] || "tipo-invalido"}`;
+  modalResTipoBadge.textContent = mapaTipoLabel[diag.tipo] || "Discrepancia";
+
+  modalResTitulo.textContent = `${r.cedulaOriginal}${r.nombreCompleto ? " · " + r.nombreCompleto : ""}`;
+
+  // Construir texto de detalle
+  let detalleHTML = diag.mensaje;
+  if (diag.tipo === "duplicado") {
+    const duplicados = trabajadores.filter(t => t.cedulaNormalizada === r.cedulaNormalizada && !t.eliminado);
+    const info = duplicados.map(d =>
+      `Fila #${d.numeroFilaOriginal}${d.nombreCompleto ? " (" + d.nombreCompleto + ")" : ""}${d.valoracionNumerica ? " — Puntuación: " + d.valoracionNumerica : ""}`
+    ).join("\n");
+    detalleHTML += "\n\nRegistros encontrados:\n" + info;
+  }
+  modalResDetalle.textContent = detalleHTML;
+
+  // Botones de resolución
+  modalResBotones.replaceChildren();
+
+  if (diag.tipo === "duplicado") {
+    crearBtnResolver(modalResBotones, "⚡ Fusionar datos en un solo registro", "btn-resolver-corregir btn", () => {
+      fusionarDuplicados(r);
+      cerrarModalResolucion();
+      renderizarTablaVerificacion();
     });
 
-    buscadorResultados.appendChild(div);
-  });
+    crearBtnResolver(modalResBotones, "🧹 Conservar esta entrada (eliminar las demás)", "btn-resolver-conservar btn", () => {
+      const duplicados = trabajadores.filter(t => t.cedulaNormalizada === r.cedulaNormalizada && !t.eliminado && t !== r);
+      duplicados.forEach(d => { d.eliminado = true; d.estado = "eliminado"; });
+      r.advertencias = [];
+      r.estado = r.condicion === "bloqueado" ? "bloqueado" :
+                 r.condicion === "asignacion_especial" ? "asignacion_especial" : "pendiente";
+      cerrarModalResolucion();
+      renderizarTablaVerificacion();
+    });
 
-  buscadorResultados.style.display = "block";
-});
+    crearBtnResolver(modalResBotones, "🗑️ Eliminar esta entrada", "btn-resolver-eliminar btn", () => {
+      r.eliminado = true;
+      r.estado = "eliminado";
+      cerrarModalResolucion();
+      renderizarTablaVerificacion();
+    });
 
-// Cerrar buscador al hacer clic fuera
-document.addEventListener("click", e => {
-  if (!inputBuscador.contains(e.target) && !buscadorResultados.contains(e.target)) {
-    buscadorResultados.style.display = "none";
+  } else if (diag.tipo === "bloqueado") {
+    crearBtnResolver(modalResBotones, "🧹 Conservar sin puntuación", "btn-resolver-conservar btn", () => {
+      limpiarPuntuacion(r, tr, tdDiag);
+      cerrarModalResolucion();
+    });
+    crearBtnResolver(modalResBotones, "🗑️ Eliminar empleado", "btn-resolver-eliminar btn", () => {
+      eliminarRegistro(r, tr);
+      cerrarModalResolucion();
+    });
+
+  } else if (diag.tipo === "reposo") {
+    crearBtnResolver(modalResBotones, "📉 Ajustar nota a 300 (máximo permitido)", "btn-resolver-corregir btn", () => {
+      corregirReposo(r, tr, tdDiag, 300);
+      cerrarModalResolucion();
+    });
+    crearBtnResolver(modalResBotones, "🗑️ Eliminar empleado", "btn-resolver-eliminar btn", () => {
+      eliminarRegistro(r, tr);
+      cerrarModalResolucion();
+    });
+
+  } else if (diag.tipo === "especial") {
+    crearBtnResolver(modalResBotones, "🧹 Conservar sin puntuación", "btn-resolver-conservar btn", () => {
+      limpiarPuntuacion(r, tr, tdDiag);
+      cerrarModalResolucion();
+    });
+    crearBtnResolver(modalResBotones, "🗑️ Eliminar empleado", "btn-resolver-eliminar btn", () => {
+      eliminarRegistro(r, tr);
+      cerrarModalResolucion();
+    });
+
+  } else {
+    crearBtnResolver(modalResBotones, "🗑️ Eliminar empleado", "btn-resolver-eliminar btn", () => {
+      eliminarRegistro(r, tr);
+      cerrarModalResolucion();
+    });
   }
+
+  // Botón cancelar
+  const btnCancelarRes = document.createElement("button");
+  btnCancelarRes.type = "button";
+  btnCancelarRes.className = "btn btn-gris";
+  btnCancelarRes.textContent = "Cancelar";
+  btnCancelarRes.addEventListener("click", cerrarModalResolucion);
+  modalResBotones.appendChild(btnCancelarRes);
+
+  modalResolucionOverlay.classList.add("visible");
+}
+
+function cerrarModalResolucion() {
+  modalResolucionOverlay.classList.remove("visible");
+}
+
+modalResolucionOverlay.addEventListener("click", e => {
+  if (e.target === modalResolucionOverlay) cerrarModalResolucion();
 });
 
 /* ============================================================
-   17. ATAJOS DE TECLADO — PASO 2
+   18. CONTADORES Y FILTROS
    ============================================================ */
-document.addEventListener("keydown", e => {
-  if (!pantalla2.classList.contains("activa")) return;
-  if (modoVista !== "ficha") return;
+function actualizarContadoresEstado() {
+  const activos = trabajadores.filter(r => !r.eliminado);
+  const total   = activos.length;
+  const ok      = activos.filter(r => esCorrecto(r)).length;
+  const disc    = activos.filter(r => evaluarDiscrepancia(r).tieneDiscrepancia).length;
 
-  // Ctrl+Z: Deshacer
-  if ((e.ctrlKey || e.metaKey) && e.key === "z" && !e.shiftKey) {
-    e.preventDefault();
-    deshacerUltimaAccion();
-    return;
-  }
+  cntTotal.textContent = total;
+  cntOk.textContent    = ok;
+  cntDisc.textContent  = disc;
 
-  if (e.key === "Escape") {
-    e.preventDefault();
-    inputValoracion.value = "";
-    limpiarErrores();
-    inputValoracion.focus();
-    return;
-  }
+  verificarAccionesMasivas();
+}
 
-  if (e.altKey && e.key === "ArrowRight") {
-    e.preventDefault();
-    avanzarSiguiente();
-    return;
-  }
+function verificarAccionesMasivas() {
+  const activos = trabajadores.filter(r => !r.eliminado);
+  const hayDisc = activos.some(r => evaluarDiscrepancia(r).tieneDiscrepancia);
+  accionesMasivas.style.display = hayDisc ? "" : "none";
+}
 
-  if (e.altKey && e.key === "ArrowLeft") {
-    e.preventDefault();
-    avanzarAnterior();
-    return;
-  }
+function actualizarFiltros() {
+  [btnFiltroTodos, btnFiltroCorrectos, btnFiltroDisc].forEach(btn => {
+    btn.classList.toggle("activo", btn.dataset.filtro === filtroActual);
+  });
+}
 
-  const desdeValoracion = document.activeElement === inputValoracion;
-  const desdeEvaluador  = document.activeElement === inputEvaluador;
+btnFiltroTodos.addEventListener("click", () => {
+  filtroActual = "todos";
+  actualizarFiltros();
+  renderizarTablaVerificacion();
+});
 
-  if ((e.key === "Enter" && desdeEvaluador) ||
-      (e.key === "Enter" && e.ctrlKey && desdeValoracion) ||
-      (e.key === "Enter" && desdeValoracion && trabajadores[indiceActual]?.condicion !== "bloqueado")) {
-    e.preventDefault();
-    guardarYSiguiente();
-  }
+btnFiltroCorrectos.addEventListener("click", () => {
+  filtroActual = "correctos";
+  actualizarFiltros();
+  renderizarTablaVerificacion();
+});
+
+btnFiltroDisc.addEventListener("click", () => {
+  filtroActual = "discrepancias";
+  actualizarFiltros();
+  renderizarTablaVerificacion();
+});
+
+// Buscador
+inputBuscador.addEventListener("input", () => {
+  busquedaActual = inputBuscador.value.trim();
+  renderizarTablaVerificacion();
 });
 
 /* ============================================================
-   18. EXPORTACIÓN — PASO 3
+   19. ACCIONES MASIVAS
+   ============================================================ */
+
+// Auto-desduplicar: conservar la primera aparición de cada cédula
+btnMassDedup.addEventListener("click", () => {
+  abrirModal(
+    "Auto-desduplicar",
+    "Se conservará la primera aparición de cada cédula y se eliminarán las demás copias. ¿Continuar?",
+    () => {
+      const vistas = new Set();
+      trabajadores.forEach(r => {
+        if (r.eliminado) return;
+        if (r.estado !== "duplicado" && !r.advertencias.some(a => a.includes("duplicada"))) return;
+        if (vistas.has(r.cedulaNormalizada)) {
+          r.eliminado = true;
+          r.estado = "eliminado";
+        } else {
+          vistas.add(r.cedulaNormalizada);
+          r.advertencias = [];
+          r.estado = r.condicion === "bloqueado" ? "bloqueado" :
+                     r.condicion === "asignacion_especial" ? "asignacion_especial" : "pendiente";
+        }
+      });
+      renderizarTablaVerificacion();
+    }
+  );
+});
+
+// Ajustar todos los reposos fuera de rango a 300
+btnMassReposo.addEventListener("click", () => {
+  const afectados = trabajadores.filter(r =>
+    !r.eliminado && r.condicion === "reposo" &&
+    r.valoracionNumerica !== null && !isNaN(r.valoracionNumerica) &&
+    (r.valoracionNumerica < 100 || r.valoracionNumerica > 300)
+  );
+  if (afectados.length === 0) {
+    limpiarZona(zonaAlertasPaso2);
+    zonaAlertasPaso2.appendChild(crearAlerta("exito", "✅", "No hay empleados en reposo con puntuación fuera de rango."));
+    return;
+  }
+  abrirModal(
+    "Ajustar reposos",
+    `${afectados.length} empleado${afectados.length !== 1 ? "s" : ""} en reposo con puntuación fuera de rango (100–300) serán ajustados al máximo permitido (300). ¿Continuar?`,
+    () => {
+      afectados.forEach(r => {
+        r.valoracionOriginal = "300";
+        r.valoracionNumerica = 300;
+        r.errores = r.errores.filter(e => !e.includes("rango"));
+        if (r.cedulaEvaluadorNormalizada && esFormatoValido(r.cedulaEvaluadorNormalizada)) {
+          r.estado = "valido";
+        }
+      });
+      renderizarTablaVerificacion();
+    }
+  );
+});
+
+// Limpiar puntuaciones de asignaciones especiales
+btnMassEspecial.addEventListener("click", () => {
+  const afectados = trabajadores.filter(r =>
+    !r.eliminado && r.condicion === "asignacion_especial" &&
+    r.valoracionNumerica !== null && !isNaN(r.valoracionNumerica)
+  );
+  if (afectados.length === 0) {
+    limpiarZona(zonaAlertasPaso2);
+    zonaAlertasPaso2.appendChild(crearAlerta("exito", "✅", "No hay empleados con asignación especial que tengan puntuación indebida."));
+    return;
+  }
+  abrirModal(
+    "Limpiar notas de asignaciones especiales",
+    `${afectados.length} empleado${afectados.length !== 1 ? "s" : ""} con asignación especial tienen una puntuación asignada que se eliminará. ¿Continuar?`,
+    () => {
+      afectados.forEach(r => {
+        r.valoracionOriginal = "";
+        r.valoracionNumerica = null;
+        r.errores = [];
+        r.estado = "asignacion_especial";
+      });
+      renderizarTablaVerificacion();
+    }
+  );
+});
+
+// Eliminar todos los bloqueados
+btnMassBloqueados.addEventListener("click", () => {
+  const afectados = trabajadores.filter(r => !r.eliminado && r.condicion === "bloqueado");
+  if (afectados.length === 0) {
+    limpiarZona(zonaAlertasPaso2);
+    zonaAlertasPaso2.appendChild(crearAlerta("exito", "✅", "No hay empleados bloqueados en la lista."));
+    return;
+  }
+  abrirModal(
+    "Eliminar empleados bloqueados",
+    `${afectados.length} empleado${afectados.length !== 1 ? "s" : ""} bloqueado${afectados.length !== 1 ? "s" : ""} serán eliminados de la lista. ¿Continuar?`,
+    () => {
+      afectados.forEach(r => { r.eliminado = true; r.estado = "eliminado"; });
+      renderizarTablaVerificacion();
+    }
+  );
+});
+
+/* ============================================================
+   20. BOTONES GLOBALES PASO 2
+   ============================================================ */
+btnFinalizar.addEventListener("click", () => {
+  const disc = trabajadores.filter(r => !r.eliminado && evaluarDiscrepancia(r).tieneDiscrepancia).length;
+  if (disc > 0) {
+    abrirModal(
+      "¿Exportar con discrepancias pendientes?",
+      `Hay ${disc} registro${disc !== 1 ? "s" : ""} con discrepancias sin resolver. Solo los registros correctos y válidos serán exportados. ¿Desea continuar?`,
+      abrirPantallaExportacion
+    );
+  } else {
+    abrirPantallaExportacion();
+  }
+});
+
+btnVolverDatos.addEventListener("click", () => mostrarPantalla(1));
+
+btnDescartarEval.addEventListener("click", () => {
+  abrirModal(
+    "Descartar sesión",
+    "Se eliminarán todos los datos de la sesión actual. Esta acción no se puede deshacer. ¿Continuar?",
+    descartarSesion
+  );
+});
+
+/* ============================================================
+   21. EXPORTACIÓN — PASO 3
    ============================================================ */
 function abrirPantallaExportacion() {
   mostrarPantalla(3);
@@ -1775,8 +1594,14 @@ function abrirPantallaExportacion() {
 }
 
 function generarExportacion() {
-  const validos  = trabajadores.filter(t => t.estado === "valido");
-  const noValidos = trabajadores.filter(t => t.estado !== "valido");
+  // Solo exportar válidos: tienen puntuación válida y evaluador, condición permitida
+  const validos  = trabajadores.filter(t => {
+    if (t.eliminado) return false;
+    if (t.estado === "valido") return true;
+    // Bloqueados y asignación especial sin puntuación — se incluyen en reporte pero NO en export
+    return false;
+  });
+  const noValidos = trabajadores.filter(t => !t.eliminado && t.estado !== "valido");
 
   const nCed = validos.length;
   const alineado = nCed > 0;
@@ -1789,7 +1614,7 @@ function generarExportacion() {
     const ul = document.createElement("ul");
     ul.style.cssText = "margin:8px 0 0 18px; font-size:.875rem;";
     [
-      `Cédulas de trabajadores: ${nCed} fila${nCed !== 1 ? "s" : ""}.`,
+      `Cédulas de empleados: ${nCed} fila${nCed !== 1 ? "s" : ""}.`,
       `Valoraciones: ${nCed} fila${nCed !== 1 ? "s" : ""}.`,
       `Cédulas de evaluadores: ${nCed} fila${nCed !== 1 ? "s" : ""}.`,
       "Los tres listados están alineados y listos para pegarse por separado en Excel."
@@ -1799,7 +1624,7 @@ function generarExportacion() {
     verificDetalle.appendChild(ul);
   } else {
     verificTitulo.textContent = "❌ No hay registros válidos para exportar";
-    verificDetalle.textContent = "Regrese a evaluar y complete al menos un trabajador.";
+    verificDetalle.textContent = "Regrese a verificar y complete o corrija los registros pendientes.";
   }
 
   salidaCedulas.value      = validos.map(t => t.cedulaOriginal).join("\n");
@@ -1863,7 +1688,11 @@ function generarPreview(validos) {
 
 function generarTablaIncidencias(registros) {
   cuerpoTablaRep.replaceChildren();
-  if (registros.length === 0) {
+
+  // Incluir también eliminados para el reporte
+  const todos = [...registros, ...trabajadores.filter(t => t.eliminado)];
+
+  if (todos.length === 0) {
     reporteVacio.style.display = "block";
     btnCopiarReporte.disabled = true;
     return;
@@ -1874,18 +1703,22 @@ function generarTablaIncidencias(registros) {
   const mapaEstadoBadge = {
     pendiente: "badge-pendiente", valido: "badge-valido",
     error: "badge-error", omitido: "badge-omitido",
-    bloqueado: "badge-bloqueado", duplicado: "badge-error"
+    bloqueado: "badge-bloqueado", asignacion_especial: "badge-especial",
+    duplicado: "badge-error", eliminado: "badge-error", reposo: "badge-reposo"
   };
 
-  registros.forEach(t => {
+  todos.forEach(t => {
     const tr = document.createElement("tr");
+    const diag = evaluarDiscrepancia(t);
+    let detalle = t.eliminado ? "Eliminado manualmente en verificación." : (diag.mensaje || t.errores.join(" / ") || "—");
+
     const celdas = [
       t.numeroFilaOriginal ?? "—",
       t.cedulaOriginal || "(vacía)",
       t.nombreCompleto  || "—",
       REGLAS_VALORACION[t.condicion]?.etiqueta || "—",
-      t.estado,
-      t.errores.join(" / ") || t.advertencias.join(" / ") || "—"
+      t.eliminado ? "eliminado" : t.estado,
+      detalle
     ];
 
     celdas.forEach((val, i) => {
@@ -1913,34 +1746,32 @@ function copiarBloque(texto, msgEl) {
     .catch(() => alert("No se pudo copiar automáticamente. Seleccione el texto y use Ctrl+C."));
 }
 
-btnCopiarCedulas.addEventListener("click", () =>
-  copiarBloque(salidaCedulas.value, msgCedulas));
-
-btnCopiarVals.addEventListener("click", () =>
-  copiarBloque(salidaValoraciones.value, msgValores));
-
-btnCopiarEvals.addEventListener("click", () =>
-  copiarBloque(salidaEvaluadores.value, msgEvaluadores));
+btnCopiarCedulas.addEventListener("click", () => copiarBloque(salidaCedulas.value, msgCedulas));
+btnCopiarVals.addEventListener("click",    () => copiarBloque(salidaValoraciones.value, msgValores));
+btnCopiarEvals.addEventListener("click",   () => copiarBloque(salidaEvaluadores.value, msgEvaluadores));
 
 btnCopiarReporte.addEventListener("click", () => {
   const noValidos = trabajadores.filter(t => t.estado !== "valido");
+  const eliminados = trabajadores.filter(t => t.eliminado);
+  const todos = [...noValidos.filter(t => !t.eliminado), ...eliminados];
   const lineas = ["Fila\tCédula\tNombre\tCondición\tEstado\tDetalle"];
-  noValidos.forEach(t => {
+  todos.forEach(t => {
+    const diag = evaluarDiscrepancia(t);
+    const detalle = t.eliminado ? "Eliminado manualmente." : (diag.mensaje || t.errores.join(" / ") || "—");
     lineas.push([
       t.numeroFilaOriginal ?? "",
       t.cedulaOriginal || "",
       t.nombreCompleto  || "",
       REGLAS_VALORACION[t.condicion]?.etiqueta || "",
-      t.estado,
-      (t.errores.join(" / ") || t.advertencias.join(" / ") || "")
+      t.eliminado ? "eliminado" : t.estado,
+      detalle
     ].join("\t"));
   });
   copiarBloque(lineas.join("\n"), msgReporte);
 });
 
-// Copiar tabla completa (3 columnas, TSV)
 btnCopiarTsv.addEventListener("click", () => {
-  const validos = trabajadores.filter(t => t.estado === "valido");
+  const validos = trabajadores.filter(t => !t.eliminado && t.estado === "valido");
   if (validos.length === 0) return;
   const lineas = validos.map(t =>
     `${t.cedulaOriginal}\t${t.valoracionOriginal}\t${t.cedulaEvaluadorOriginal}`
@@ -1948,20 +1779,9 @@ btnCopiarTsv.addEventListener("click", () => {
   copiarBloque(lineas.join("\n"), msgTsv);
 });
 
-/* --- Volver a evaluar pendientes --- */
-btnVolverEval.addEventListener("click", () => {
-  const idx = trabajadores.findIndex(t => t.estado === "pendiente");
-  if (idx === -1) { alert("No hay trabajadores pendientes por evaluar."); return; }
-  indiceActual = idx;
-  mostrarPantalla(2);
-  if (modoVista === "planilla") {
-    renderizarPlanilla();
-  } else {
-    cargarTrabajador(indiceActual);
-  }
-});
+/* --- Volver a verificar / Nueva sesión / Descartar --- */
+btnVolverEval.addEventListener("click", () => mostrarPantalla(2));
 
-/* --- Nueva sesión / Descartar --- */
 btnNuevaSesion.addEventListener("click", () => {
   abrirModal("Iniciar nueva sesión", "Se eliminarán todos los datos de la sesión actual. ¿Desea continuar?", descartarSesion);
 });
@@ -1971,7 +1791,7 @@ btnDescartarFinal.addEventListener("click", () => {
 });
 
 /* ============================================================
-   19. GUARDAR / CARGAR BORRADOR LOCAL (.json)
+   22. GUARDAR / CARGAR BORRADOR LOCAL (.json)
    ============================================================ */
 btnGuardarBorrador.addEventListener("click", () => {
   if (trabajadores.length === 0) {
@@ -1980,10 +1800,8 @@ btnGuardarBorrador.addEventListener("click", () => {
   }
 
   const borrador = {
-    version: "2.0",
+    version: "3.0",
     fechaGuardado: new Date().toISOString(),
-    evaluadorActual,
-    ultimaValoracion,
     evaluadoresFrecuentes,
     trabajadores
   };
@@ -1992,7 +1810,7 @@ btnGuardarBorrador.addEventListener("click", () => {
   const url  = URL.createObjectURL(blob);
   const a    = document.createElement("a");
   a.href     = url;
-  a.download = `borrador-valoraciones-${new Date().toISOString().slice(0, 10)}.json`;
+  a.download = `borrador-verificacion-${new Date().toISOString().slice(0, 10)}.json`;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
@@ -2013,7 +1831,6 @@ inputCargarBorrador.addEventListener("change", e => {
         return;
       }
 
-      // Confirmar si hay sesión activa
       if (sesionActiva && trabajadores.length > 0) {
         if (!confirm("Hay una sesión activa. Al cargar el borrador se perderán los datos actuales. ¿Continuar?")) {
           inputCargarBorrador.value = "";
@@ -2021,32 +1838,24 @@ inputCargarBorrador.addEventListener("change", e => {
         }
       }
 
-      trabajadores         = datos.trabajadores;
-      evaluadorActual      = datos.evaluadorActual || "";
-      ultimaValoracion     = datos.ultimaValoracion || null;
+      trabajadores          = datos.trabajadores;
       evaluadoresFrecuentes = datos.evaluadoresFrecuentes || [];
-      sesionActiva         = true;
-      historialDeshacer    = [];
-      duplicadosDetectados = [];
+      sesionActiva          = true;
+      duplicadosDetectados  = [];
 
-      // Restaurar pantalla según estado del borrador
-      const pendientes = trabajadores.filter(t => t.estado === "pendiente").length;
+      const pendientes = trabajadores.filter(t => t.estado === "pendiente" || t.estado === "reposo").length;
       const validos    = trabajadores.filter(t => t.estado === "valido").length;
 
       if (pendientes === 0 && validos > 0) {
         abrirPantallaExportacion();
       } else {
-        indiceActual = trabajadores.findIndex(t => t.estado === "pendiente");
-        if (indiceActual === -1) indiceActual = 0;
         mostrarPantalla(2);
-        if (modoVista === "planilla") {
-          renderizarPlanilla();
-        } else {
-          cargarTrabajador(indiceActual);
-        }
+        filtroActual = "todos";
+        actualizarFiltros();
+        renderizarTablaVerificacion();
       }
 
-      alert(`✅ Borrador cargado correctamente. ${trabajadores.length} trabajadores restaurados.`);
+      alert(`✅ Borrador cargado correctamente. ${trabajadores.length} empleados restaurados.`);
 
     } catch {
       alert("Error al leer el archivo. Asegúrese de que sea un borrador válido generado por esta herramienta.");
@@ -2057,17 +1866,15 @@ inputCargarBorrador.addEventListener("change", e => {
 });
 
 /* ============================================================
-   20. DESCARTAR SESIÓN — Limpieza completa
+   23. DESCARTAR SESIÓN
    ============================================================ */
 function descartarSesion() {
   trabajadores          = [];
-  indiceActual          = 0;
-  evaluadorActual       = "";
   sesionActiva          = false;
-  ultimaValoracion      = null;
-  historialDeshacer     = [];
   evaluadoresFrecuentes = [];
   duplicadosDetectados  = [];
+  filtroActual          = "todos";
+  busquedaActual        = "";
 
   areaTrabajadores.value = "";
   areaBloqueados.value   = "";
@@ -2084,7 +1891,6 @@ function descartarSesion() {
 
   limpiarZona(zonaAlertasPaso1);
   limpiarZona(zonaAlertasPaso2);
-  zonaDuplicados.classList.add("d-none");
   zonaResumen.classList.add("d-none");
   zonaIniciar.classList.add("d-none");
   zonaOrdenamiento.style.display = "none";
@@ -2093,21 +1899,22 @@ function descartarSesion() {
   btnOrdenarAZ.classList.remove("btn-orden-activo");
   btnOrdenarZA.classList.remove("btn-orden-activo");
   cuerpoTablaRep.replaceChildren();
-  cuerpoTablaPlanilla.replaceChildren();
+  cuerpoTablaVerificacion.replaceChildren();
   cuerpoPreview.replaceChildren();
+  inputBuscador.value = "";
 
-  msgCedulas.classList.remove("visible");
-  msgValores.classList.remove("visible");
-  msgEvaluadores.classList.remove("visible");
-  msgReporte.classList.remove("visible");
-  msgTsv.classList.remove("visible");
+  cntTotal.textContent = "0";
+  cntOk.textContent    = "0";
+  cntDisc.textContent  = "0";
+  accionesMasivas.style.display = "none";
 
   mostrarPantalla(1);
   cerrarModal();
+  cerrarModalResolucion();
 }
 
 /* ============================================================
-   21. MODAL DE CONFIRMACIÓN
+   24. MODAL DE CONFIRMACIÓN GENERAL
    ============================================================ */
 let accionModal = null;
 
@@ -2133,13 +1940,14 @@ modalOverlay.addEventListener("click", e => {
   if (e.target === modalOverlay) cerrarModal();
 });
 document.addEventListener("keydown", e => {
-  if (e.key === "Escape" && modalOverlay.classList.contains("visible")) {
-    cerrarModal();
+  if (e.key === "Escape") {
+    if (modalResolucionOverlay.classList.contains("visible")) cerrarModalResolucion();
+    else if (modalOverlay.classList.contains("visible")) cerrarModal();
   }
 });
 
 /* ============================================================
-   22. PROTECCIÓN CONTRA CIERRE ACCIDENTAL
+   25. PROTECCIÓN CONTRA CIERRE ACCIDENTAL
    ============================================================ */
 window.addEventListener("beforeunload", e => {
   if (sesionActiva && trabajadores.length > 0) {
@@ -2149,6 +1957,6 @@ window.addEventListener("beforeunload", e => {
 });
 
 /* ============================================================
-   23. INICIALIZACIÓN
+   26. INICIALIZACIÓN
    ============================================================ */
 mostrarPantalla(1);

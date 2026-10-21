@@ -1371,3 +1371,327 @@ hr {
   color: #fff;
 }
 
+
+/* ─── 31. Verificación y Corrección — Paso 2 (v3.0) ───────── */
+
+/* Contadores de estado */
+.contadores-estado {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.contador-chip {
+  flex: 1;
+  min-width: 90px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 10px 8px;
+  border-radius: var(--radius-sm);
+  border: 1.5px solid var(--border);
+  background: var(--gray-bg);
+  transition: background var(--transition);
+}
+
+.contador-chip-num {
+  font-size: 1.6rem;
+  font-weight: 800;
+  line-height: 1;
+  margin-bottom: 3px;
+}
+
+.contador-chip-lbl {
+  font-size: .72rem;
+  font-weight: 600;
+  color: var(--txt-muted);
+  text-transform: uppercase;
+  letter-spacing: .4px;
+  text-align: center;
+}
+
+.contador-total { background: var(--gray-bg); border-color: var(--border); }
+.contador-total .contador-chip-num { color: var(--txt-secondary); }
+
+.contador-ok { background: var(--green-bg); border-color: var(--green-border); }
+.contador-ok .contador-chip-num { color: var(--green-text); }
+
+.contador-disc { background: var(--red-bg); border-color: var(--red-border); }
+.contador-disc .contador-chip-num { color: var(--red-text); }
+
+/* Filtros de estado */
+.filtros-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  background: var(--gray-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.filtro-tab {
+  padding: 6px 15px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-full);
+  background: var(--bg-card);
+  color: var(--txt-secondary);
+  font-family: var(--font);
+  font-size: .8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.filtro-tab:hover { border-color: var(--blue); color: var(--blue-text); }
+
+.filtro-tab.activo {
+  background: var(--blue);
+  border-color: var(--blue);
+  color: #fff;
+}
+
+/* Acciones masivas */
+.acciones-masivas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  background: var(--yellow-bg);
+  border: 1px solid var(--yellow-border);
+  border-radius: var(--radius-sm);
+}
+
+/* Tabla de verificación */
+.tabla-verificacion-contenedor {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  margin-bottom: 14px;
+  max-height: 600px;
+  overflow-y: auto;
+}
+
+.tabla-verificacion {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: .84rem;
+  min-width: 700px;
+}
+
+.tabla-verificacion thead th {
+  background: var(--gray-bg);
+  color: var(--txt-muted);
+  font-size: .72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+  padding: 9px 10px;
+  border-bottom: 2px solid var(--border);
+  white-space: nowrap;
+  text-align: left;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.tabla-verificacion tbody tr {
+  border-bottom: 1px solid var(--border);
+  transition: background var(--transition);
+}
+
+.tabla-verificacion tbody tr:hover { background: var(--bg-hover); }
+.tabla-verificacion tbody tr:nth-child(even) { background: var(--bg-striped); }
+.tabla-verificacion tbody tr:nth-child(even):hover { background: var(--bg-hover); }
+
+.tabla-verificacion td {
+  padding: 7px 10px;
+  vertical-align: middle;
+}
+
+/* Fila con discrepancia — borde rojo lateral */
+.tabla-verificacion tbody tr.fila-discrepancia {
+  background: var(--red-bg) !important;
+  border-left: 4px solid var(--red);
+}
+
+.tabla-verificacion tbody tr.fila-discrepancia:hover {
+  background: color-mix(in srgb, var(--red-bg) 85%, var(--bg-hover)) !important;
+}
+
+/* Fila correcta — borde verde lateral */
+.tabla-verificacion tbody tr.fila-correcta {
+  background: var(--green-bg) !important;
+  border-left: 4px solid var(--green);
+}
+
+/* Input editable dentro de la tabla */
+.verif-input {
+  width: 88px;
+  padding: 5px 8px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-family: var(--font);
+  font-size: .85rem;
+  font-weight: 700;
+  color: var(--txt-primary);
+  background: var(--bg-input);
+  text-align: center;
+  outline: none;
+  transition: border-color var(--transition), box-shadow var(--transition);
+}
+
+.verif-input:focus {
+  border-color: var(--border-focus);
+  box-shadow: 0 0 0 3px rgba(37,99,235,.14);
+}
+
+.verif-input.ok { border-color: var(--green); background: var(--green-bg); color: var(--green-text); }
+.verif-input.err { border-color: var(--red); background: var(--red-bg); color: var(--red-text); }
+
+/* Columna de diagnóstico y acciones */
+.celda-diagnostico {
+  min-width: 220px;
+  max-width: 340px;
+}
+
+.diagnostico-msg {
+  font-size: .78rem;
+  color: var(--red-text);
+  font-weight: 600;
+  margin-bottom: 5px;
+  line-height: 1.4;
+}
+
+.diagnostico-msg.ok-msg {
+  color: var(--green-text);
+  font-weight: 500;
+}
+
+.diagnostico-acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+/* Botones de resolución en la tabla */
+.btn-resolver {
+  padding: 3px 10px;
+  font-size: .72rem;
+  font-family: var(--font);
+  font-weight: 700;
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  border: 1.5px solid;
+  transition: all var(--transition);
+  white-space: nowrap;
+  line-height: 1.4;
+}
+
+.btn-resolver-conservar {
+  background: var(--green-bg);
+  color: var(--green-text);
+  border-color: var(--green-border);
+}
+.btn-resolver-conservar:hover { background: var(--green); color: #fff; }
+
+.btn-resolver-corregir {
+  background: var(--blue-bg);
+  color: var(--blue-text);
+  border-color: var(--blue-border);
+}
+.btn-resolver-corregir:hover { background: var(--blue); color: #fff; }
+
+.btn-resolver-eliminar {
+  background: var(--red-bg);
+  color: var(--red-text);
+  border-color: var(--red-border);
+}
+.btn-resolver-eliminar:hover { background: var(--red); color: #fff; }
+
+.btn-resolver-detalle {
+  background: var(--yellow-bg);
+  color: var(--yellow-text);
+  border-color: var(--yellow-border);
+}
+.btn-resolver-detalle:hover { background: #f59e0b; color: #fff; }
+
+/* Tabla vacía */
+.tabla-vacia-msg {
+  text-align: center;
+  padding: 28px 20px;
+  color: var(--txt-muted);
+  font-size: .9rem;
+  font-style: italic;
+}
+
+/* Modal de resolución de discrepancias */
+.modal-resolucion {
+  max-width: 500px;
+}
+
+.modal-res-tipo {
+  font-size: .72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .6px;
+  margin-bottom: 8px;
+  padding: 3px 10px;
+  border-radius: var(--radius-full);
+  display: inline-block;
+}
+
+.modal-res-tipo.tipo-duplicado { background: var(--yellow-bg); color: var(--yellow-text); }
+.modal-res-tipo.tipo-bloqueado { background: var(--red-bg); color: var(--red-text); }
+.modal-res-tipo.tipo-reposo    { background: var(--badge-reposo-bg); color: var(--badge-reposo-txt); }
+.modal-res-tipo.tipo-especial  { background: var(--badge-especial-bg); color: var(--badge-especial-txt); }
+.modal-res-tipo.tipo-invalido  { background: var(--red-bg); color: var(--red-text); }
+
+.modal-res-detalle {
+  font-size: .86rem;
+  color: var(--txt-secondary);
+  line-height: 1.6;
+  margin-bottom: 16px;
+  padding: 12px;
+  background: var(--gray-bg);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+}
+
+.modal-res-botones {
+  margin-top: 0;
+}
+
+/* Evaluar campo evaluador en la tabla */
+.verif-eval-input {
+  width: 110px;
+  padding: 5px 7px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-family: var(--font);
+  font-size: .8rem;
+  color: var(--txt-primary);
+  background: var(--bg-input);
+  outline: none;
+  transition: border-color var(--transition);
+}
+
+.verif-eval-input:focus {
+  border-color: var(--border-focus);
+  box-shadow: 0 0 0 2px rgba(37,99,235,.10);
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+  .tabla-verificacion { font-size: .76rem; }
+  .verif-input { width: 72px; }
+  .filtros-bar { padding: 8px; gap: 4px; }
+  .filtro-tab { padding: 5px 10px; font-size: .74rem; }
+  .acciones-masivas { gap: 6px; }
+  .contadores-estado { gap: 6px; }
+  .contador-chip { min-width: 70px; }
+}
