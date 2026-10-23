@@ -1695,3 +1695,489 @@ hr {
   .contadores-estado { gap: 6px; }
   .contador-chip { min-width: 70px; }
 }
+
+/* ============================================================
+   28. MANUAL DE USUARIO INTEGRADO Y AYUDA CONTEXTUAL
+   ============================================================ */
+
+/* Botón en la cabecera principal */
+.btn-manual {
+  background: rgba(255, 255, 255, .16);
+  border: 1px solid rgba(255, 255, 255, .32);
+  border-radius: var(--radius-sm);
+  color: #ffffff;
+  cursor: pointer;
+  font-size: .76rem;
+  font-weight: 700;
+  padding: 5px 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: background var(--transition), transform var(--transition);
+}
+
+.btn-manual:hover {
+  background: rgba(255, 255, 255, .28);
+}
+
+/* Cabecera de paso con botón de ayuda contextual */
+.cabecera-paso-flex {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+
+.cabecera-paso-flex .titulo-paso {
+  margin-bottom: 0;
+}
+
+.btn-ayuda-ctx {
+  background: var(--blue-bg);
+  color: var(--blue-text);
+  border: 1px solid var(--blue-border);
+  border-radius: var(--radius-full);
+  padding: 4px 12px;
+  font-size: .75rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  transition: background var(--transition), color var(--transition), border-color var(--transition);
+}
+
+.btn-ayuda-ctx:hover {
+  background: var(--blue);
+  color: #ffffff;
+  border-color: var(--blue);
+}
+
+/* Contenedor principal del modal del manual */
+.modal-manual {
+  max-width: 980px;
+  width: 96%;
+  max-height: 88vh;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Cabecera del modal del manual */
+.manual-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 16px 22px;
+  background: var(--bg-header);
+  color: var(--txt-header);
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+
+.manual-header-titulo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.manual-header-titulo h2 {
+  font-size: 1.02rem;
+  font-weight: 700;
+  color: #ffffff;
+  margin: 0;
+}
+
+.manual-subtitulo {
+  font-size: .74rem;
+  color: rgba(255, 255, 255, .75);
+  display: block;
+  margin-top: 2px;
+}
+
+.manual-header-controles {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.manual-buscador-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.manual-buscador-icono {
+  position: absolute;
+  left: 9px;
+  font-size: .8rem;
+  pointer-events: none;
+}
+
+.manual-buscador-input {
+  width: 250px;
+  padding: 6px 10px 6px 28px;
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(255, 255, 255, .28);
+  background: rgba(255, 255, 255, .12);
+  color: #ffffff;
+  font-size: .78rem;
+  outline: none;
+  transition: background var(--transition), border-color var(--transition);
+}
+
+.manual-buscador-input::placeholder {
+  color: rgba(255, 255, 255, .68);
+}
+
+.manual-buscador-input:focus {
+  background: rgba(255, 255, 255, .22);
+  border-color: #ffffff;
+}
+
+.btn-cerrar-manual {
+  background: rgba(255, 255, 255, .14);
+  border: 1px solid rgba(255, 255, 255, .25);
+  color: #ffffff;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: .9rem;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background var(--transition);
+}
+
+.btn-cerrar-manual:hover {
+  background: var(--red);
+  border-color: var(--red);
+}
+
+/* Cuerpo 2 columnas del manual */
+.manual-cuerpo {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+  min-height: 0;
+}
+
+/* Barra lateral de navegación */
+.manual-sidebar {
+  width: 245px;
+  flex-shrink: 0;
+  background: var(--bg-striped);
+  border-right: 1px solid var(--border);
+  padding: 14px 10px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.manual-sidebar-titulo {
+  font-size: .7rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .6px;
+  color: var(--txt-muted);
+  padding: 4px 10px 8px;
+}
+
+.manual-nav-btn {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  text-align: left;
+  font-size: .8rem;
+  font-weight: 600;
+  color: var(--txt-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  transition: background var(--transition), color var(--transition);
+}
+
+.manual-nav-btn:hover {
+  background: var(--bg-hover);
+  color: var(--txt-primary);
+}
+
+.manual-nav-btn.activo {
+  background: var(--blue-bg);
+  color: var(--blue-text);
+  border-color: var(--blue-border);
+  font-weight: 700;
+}
+
+/* Área de lectura del manual */
+.manual-contenido {
+  flex: 1;
+  padding: 22px 26px;
+  overflow-y: auto;
+  scroll-behavior: smooth;
+}
+
+.manual-seccion {
+  margin-bottom: 28px;
+  padding-bottom: 22px;
+  border-bottom: 1px solid var(--border);
+}
+
+.manual-seccion:last-child {
+  margin-bottom: 8px;
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+.manual-seccion h3 {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--blue);
+  margin-bottom: 10px;
+}
+
+.manual-seccion h4 {
+  font-size: .88rem;
+  font-weight: 700;
+  color: var(--txt-primary);
+  margin: 12px 0 6px;
+}
+
+.manual-seccion p {
+  font-size: .86rem;
+  color: var(--txt-secondary);
+  line-height: 1.65;
+  margin-bottom: 10px;
+}
+
+/* Tarjetas dentro del manual */
+.manual-grid-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.manual-card {
+  background: var(--bg-striped);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+}
+
+.manual-card h4 {
+  margin-top: 0;
+  margin-bottom: 6px;
+  font-size: .86rem;
+}
+
+.manual-card p,
+.manual-card ul {
+  font-size: .81rem;
+  color: var(--txt-secondary);
+  margin: 0;
+  line-height: 1.55;
+}
+
+.manual-card ul {
+  padding-left: 16px;
+  margin-top: 6px;
+}
+
+.manual-card li {
+  margin-bottom: 4px;
+}
+
+.manual-card-ok {
+  background: var(--green-bg);
+  border-color: var(--green-border);
+}
+
+.manual-card-info {
+  background: var(--blue-bg);
+  border-color: var(--blue-border);
+}
+
+/* Bloques de ejemplo de formatos */
+.manual-bloque-ejemplo {
+  background: var(--bg-striped);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  margin-bottom: 10px;
+}
+
+.manual-ejemplo-titulo {
+  font-size: .78rem;
+  font-weight: 700;
+  color: var(--txt-primary);
+  margin-bottom: 6px;
+}
+
+.manual-bloque-ejemplo pre {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 8px 10px;
+  font-family: var(--font-mono, monospace);
+  font-size: .76rem;
+  color: var(--txt-primary);
+  overflow-x: auto;
+  margin-bottom: 6px;
+}
+
+.manual-nota {
+  font-size: .78rem !important;
+  color: var(--txt-muted) !important;
+  margin-bottom: 0 !important;
+}
+
+/* Tabla de reglas en el manual */
+.manual-tabla {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: .8rem;
+}
+
+.manual-tabla th,
+.manual-tabla td {
+  border: 1px solid var(--border);
+  padding: 8px 10px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.manual-tabla th {
+  background: var(--bg-striped);
+  color: var(--txt-primary);
+  font-weight: 700;
+}
+
+.manual-tabla td {
+  color: var(--txt-secondary);
+}
+
+/* Listas y FAQ */
+.manual-lista,
+.manual-lista-num {
+  padding-left: 20px;
+  font-size: .85rem;
+  color: var(--txt-secondary);
+  line-height: 1.65;
+  margin-bottom: 10px;
+}
+
+.manual-lista li,
+.manual-lista-num li {
+  margin-bottom: 6px;
+}
+
+.manual-faq-item {
+  background: var(--bg-striped);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  margin-bottom: 8px;
+}
+
+.manual-faq-item h4 {
+  margin: 0 0 4px;
+  color: var(--txt-primary);
+  font-size: .85rem;
+}
+
+.manual-faq-item p {
+  margin: 0;
+  font-size: .81rem;
+}
+
+.manual-sin-resultados {
+  padding: 24px;
+  text-align: center;
+  background: var(--yellow-bg);
+  border: 1px solid var(--yellow-border);
+  color: var(--yellow-text);
+  border-radius: var(--radius-sm);
+  font-size: .86rem;
+}
+
+/* Responsividad del manual en pantallas pequeñas */
+@media (max-width: 768px) {
+  .manual-cuerpo {
+    flex-direction: column;
+  }
+  .manual-sidebar {
+    width: 100%;
+    flex-direction: row;
+    overflow-x: auto;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+    padding: 8px;
+  }
+  .manual-sidebar-titulo {
+    display: none;
+  }
+  .manual-nav-btn {
+    white-space: nowrap;
+    padding: 6px 10px;
+    font-size: .75rem;
+  }
+  .manual-buscador-input {
+    width: 180px;
+  }
+}
+
+/* Estilos de Impresión exclusivos para exportar el Manual de Usuario en PDF/Papel */
+@media print {
+  body.imprimiendo-manual > *:not(#modal-manual-overlay) {
+    display: none !important;
+  }
+  body.imprimiendo-manual #modal-manual-overlay {
+    display: block !important;
+    position: static !important;
+    background: transparent !important;
+    padding: 0 !important;
+  }
+  body.imprimiendo-manual .modal-manual {
+    max-width: 100% !important;
+    width: 100% !important;
+    max-height: none !important;
+    box-shadow: none !important;
+    border: none !important;
+    overflow: visible !important;
+  }
+  body.imprimiendo-manual .manual-header {
+    background: #ffffff !important;
+    color: #000000 !important;
+    border-bottom: 2px solid #1a3a5c !important;
+    padding: 8px 0 12px !important;
+  }
+  body.imprimiendo-manual .manual-header-titulo h2,
+  body.imprimiendo-manual .manual-subtitulo {
+    color: #000000 !important;
+  }
+  body.imprimiendo-manual .manual-header-controles,
+  body.imprimiendo-manual .manual-sidebar {
+    display: none !important;
+  }
+  body.imprimiendo-manual .manual-cuerpo,
+  body.imprimiendo-manual .manual-contenido {
+    display: block !important;
+    overflow: visible !important;
+    padding: 12px 0 !important;
+  }
+  body.imprimiendo-manual .manual-seccion {
+    display: block !important;
+    page-break-inside: avoid;
+  }
+}

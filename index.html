@@ -17,6 +17,12 @@
     <span class="badge-fase">v3.0</span>
 
     <div class="header-actions">
+      <!-- Manual de Usuario -->
+      <button class="btn-manual" id="btn-abrir-manual" title="Abrir el Manual de Usuario y guía operativa paso a paso">
+        <span aria-hidden="true">📖</span>
+        <span>Manual de usuario</span>
+      </button>
+
       <!-- Borrador -->
       <button class="btn-draft" id="btn-guardar-borrador" title="Guardar borrador de la sesión actual en un archivo .json local">
         <span aria-hidden="true">💾</span> Guardar borrador
@@ -52,10 +58,15 @@
     <section class="pantalla activa" id="pantalla-1" aria-label="Paso 1: Entrada de datos">
 
       <div class="tarjeta">
-        <h2 class="titulo-paso">
-          <span aria-hidden="true">📂</span>
-          Paso 1 de 3 — Entrada de datos
-        </h2>
+        <div class="cabecera-paso-flex">
+          <h2 class="titulo-paso">
+            <span aria-hidden="true">📂</span>
+            Paso 1 de 3 — Entrada de datos
+          </h2>
+          <button type="button" class="btn-ayuda-ctx" data-manual-sec="sec-paso1" title="Ver formatos admitidos y guía del Paso 1">
+            <span aria-hidden="true">❓</span> Guía de formatos y carga
+          </button>
+        </div>
         <p class="subtitulo">
           Copie filas desde Excel (cédula sola, cédula+nombre, o formato completo de 9 columnas con puntuación y evaluador) y péguela en el área de texto.
         </p>
@@ -103,6 +114,11 @@ Formatos soportados:
                 Pegue aquí las cédulas con condiciones especiales. No es necesario incluirlas
                 también en la lista principal de arriba.
                 Los empleados no listados aquí se evaluarán como <strong>Normal (100–500)</strong>.
+                <div style="margin-top:6px;">
+                  <button type="button" class="btn-ayuda-ctx" data-manual-sec="sec-condiciones">
+                    <span aria-hidden="true">❓</span> Ver tabla de rangos y reglas de negocio
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -256,10 +272,15 @@ Formatos soportados:
     <section class="pantalla" id="pantalla-2" aria-label="Paso 2: Verificación y corrección">
 
       <div class="tarjeta">
-        <h2 class="titulo-paso">
-          <span aria-hidden="true">🛠️</span>
-          Paso 2 de 3 — Verificación y corrección
-        </h2>
+        <div class="cabecera-paso-flex">
+          <h2 class="titulo-paso">
+            <span aria-hidden="true">🛠️</span>
+            Paso 2 de 3 — Verificación y corrección
+          </h2>
+          <button type="button" class="btn-ayuda-ctx" data-manual-sec="sec-paso2" title="Ver guía de diagnóstico y semaforización">
+            <span aria-hidden="true">❓</span> Guía de verificación
+          </button>
+        </div>
 
         <!-- Contadores de estado -->
         <div class="contadores-estado" id="contadores-estado">
@@ -304,6 +325,9 @@ Formatos soportados:
           <button class="btn btn-sm btn-secundario" id="btn-mass-reposo">📉 Ajustar reposos</button>
           <button class="btn btn-sm btn-secundario" id="btn-mass-especial">🧽 Limpiar notas especiales</button>
           <button class="btn btn-sm btn-peligro"   id="btn-mass-bloqueados">🗑️ Eliminar bloqueados</button>
+          <button type="button" class="btn-ayuda-ctx" data-manual-sec="sec-resolucion" style="margin-left:auto;">
+            <span aria-hidden="true">❓</span> ¿Qué hace cada acción?
+          </button>
         </div>
 
         <!-- Zona de alertas del paso 2 -->
@@ -352,10 +376,15 @@ Formatos soportados:
     <section class="pantalla" id="pantalla-3" aria-label="Paso 3: Exportación">
 
       <div class="tarjeta">
-        <h2 class="titulo-paso">
-          <span aria-hidden="true">📤</span>
-          Paso 3 de 3 — Exportación
-        </h2>
+        <div class="cabecera-paso-flex">
+          <h2 class="titulo-paso">
+            <span aria-hidden="true">📤</span>
+            Paso 3 de 3 — Exportación
+          </h2>
+          <button type="button" class="btn-ayuda-ctx" data-manual-sec="sec-paso3" title="Ver guía de exportación segura a Excel">
+            <span aria-hidden="true">❓</span> Guía de pegado en Excel
+          </button>
+        </div>
 
         <!-- Verificación de alineación -->
         <div id="verificacion-alineacion" class="verificacion-alineacion">
@@ -510,6 +539,323 @@ Formatos soportados:
       <h3 id="modal-res-titulo"></h3>
       <div id="modal-res-detalle" class="modal-res-detalle"></div>
       <div id="modal-res-botones" class="modal-res-botones grupo-botones"></div>
+    </div>
+  </div>
+
+  <!-- ======================================================
+       MODAL DEL MANUAL DE USUARIO INTEGRADO
+       ====================================================== -->
+  <div class="modal-overlay" id="modal-manual-overlay" role="dialog" aria-modal="true" aria-labelledby="manual-titulo">
+    <div class="modal modal-manual">
+
+      <!-- Cabecera del Manual -->
+      <div class="manual-header">
+        <div class="manual-header-titulo">
+          <span aria-hidden="true" style="font-size:1.3rem;">📖</span>
+          <div>
+            <h2 id="manual-titulo">Manual de Usuario — Verificación y Corrección de Datos</h2>
+            <span class="manual-subtitulo">Guía operativa rápida · División de Talento Humano · Versión 3.0</span>
+          </div>
+        </div>
+
+        <div class="manual-header-controles">
+          <div class="manual-buscador-wrap">
+            <span class="manual-buscador-icono" aria-hidden="true">🔍</span>
+            <input
+              type="search"
+              id="manual-buscador"
+              class="manual-buscador-input"
+              placeholder="Buscar en el manual (ej. reposo, 9 columnas, duplicado, Excel)..."
+              aria-label="Buscar dentro del manual de usuario"
+            />
+          </div>
+          <button type="button" class="btn btn-secundario btn-sm" id="btn-imprimir-manual" title="Imprimir o guardar el manual completo en PDF">
+            <span aria-hidden="true">🖨️</span> Imprimir / PDF
+          </button>
+          <button type="button" class="btn-cerrar-manual" id="btn-cerrar-manual" title="Cerrar manual (Esc)" aria-label="Cerrar manual">
+            ✖
+          </button>
+        </div>
+      </div>
+
+      <!-- Cuerpo del Manual (Índice lateral + Contenido) -->
+      <div class="manual-cuerpo">
+
+        <!-- Índice lateral -->
+        <nav class="manual-sidebar" aria-label="Índice del manual">
+          <div class="manual-sidebar-titulo">Contenido del Manual</div>
+          <button type="button" class="manual-nav-btn activo" data-sec="sec-intro">
+            <span aria-hidden="true">🛡️</span> 1. Propósito y Privacidad
+          </button>
+          <button type="button" class="manual-nav-btn" data-sec="sec-paso1">
+            <span aria-hidden="true">📂</span> 2. Paso 1: Carga y Formatos
+          </button>
+          <button type="button" class="manual-nav-btn" data-sec="sec-condiciones">
+            <span aria-hidden="true">⚙️</span> 3. Condiciones y Reglas
+          </button>
+          <button type="button" class="manual-nav-btn" data-sec="sec-paso2">
+            <span aria-hidden="true">🛠️</span> 4. Paso 2: Diagnóstico
+          </button>
+          <button type="button" class="manual-nav-btn" data-sec="sec-resolucion">
+            <span aria-hidden="true">⚡</span> 5. Resolver Discrepancias
+          </button>
+          <button type="button" class="manual-nav-btn" data-sec="sec-paso3">
+            <span aria-hidden="true">📤</span> 6. Paso 3: Exportar a Excel
+          </button>
+          <button type="button" class="manual-nav-btn" data-sec="sec-borradores">
+            <span aria-hidden="true">💾</span> 7. Uso de Borradores (.json)
+          </button>
+          <button type="button" class="manual-nav-btn" data-sec="sec-faq">
+            <span aria-hidden="true">❓</span> 8. Preguntas Frecuentes
+          </button>
+        </nav>
+
+        <!-- Área de lectura -->
+        <div class="manual-contenido" id="manual-contenido">
+
+          <div id="manual-sin-resultados" class="manual-sin-resultados" style="display:none;">
+            No se encontraron secciones que coincidan con su búsqueda. Pruebe con otro término (ej. <strong>reposo</strong>, <strong>duplicados</strong>, <strong>Excel</strong>, <strong>bloqueados</strong>).
+          </div>
+
+          <!-- SECCIÓN 1: PROPÓSITO Y PRIVACIDAD -->
+          <article class="manual-seccion" id="sec-intro">
+            <h3>🛡️ 1. Propósito del Sistema y Privacidad de Datos</h3>
+            <p>
+              Esta herramienta web fue diseñada para asistir al personal de <strong>Talento Humano</strong> en la depuración, validación de rangos y corrección de discrepancias en la nómina de <strong>Evaluación del Desempeño</strong> antes de volcar los datos definitivos en las hojas de cálculo institucionales protegidas.
+            </p>
+            <div class="manual-grid-cards">
+              <div class="manual-card manual-card-ok">
+                <h4>🔒 Privacidad 100% Local</h4>
+                <p>Todo el procesamiento ocurre exclusivamente en la memoria RAM de su navegador. Ningún dato de cédulas, nombres o calificaciones se envía a internet ni a servidores externos.</p>
+              </div>
+              <div class="manual-card manual-card-info">
+                <h4>⚡ Flujo Guiado en 3 Pasos</h4>
+                <p>El proceso está dividido en: <strong>1) Entrada de datos</strong>, <strong>2) Verificación y corrección en tabla</strong> y <strong>3) Exportación sincronizada</strong> lista para pegar en Excel.</p>
+              </div>
+            </div>
+          </article>
+
+          <!-- SECCIÓN 2: PASO 1 ENTRADA Y FORMATOS -->
+          <article class="manual-seccion" id="sec-paso1">
+            <h3>📂 2. Paso 1: Entrada de Datos y Formatos Soportados</h3>
+            <p>
+              En la pantalla inicial puede copiar filas directamente desde su archivo de Excel y pegarlas en el recuadro principal <strong>Cédulas de empleados</strong>. El sistema detecta automáticamente qué formato está pegando:
+            </p>
+
+            <div class="manual-bloque-ejemplo">
+              <div class="manual-ejemplo-titulo">Formato A · Solo Cédula (1 columna)</div>
+              <pre>12345678
+23456789</pre>
+              <p class="manual-nota">Útil cuando solo desea cargar el listado base y asignar las puntuaciones dentro de la aplicación.</p>
+            </div>
+
+            <div class="manual-bloque-ejemplo">
+              <div class="manual-ejemplo-titulo">Formato B · Cédula + Nombre (2 columnas separadas por TAB o espacios)</div>
+              <pre>12345678	PÉREZ JUAN
+23456789	GÓMEZ MARÍA</pre>
+              <p class="manual-nota">Permite identificar fácilmente a cada trabajador por su nombre completo y ordenar alfabéticamente (A→Z o Z→A).</p>
+            </div>
+
+            <div class="manual-bloque-ejemplo">
+              <div class="manual-ejemplo-titulo">Formato C · Completo de 9 Columnas desde Excel / SAP (Recomendado)</div>
+              <pre>6.328.281	188465	GUERRA ALEXANDER	M1	CENTRO DESPACHO	TACHIRA	485	Muy Bueno	118094</pre>
+              <p class="manual-nota">
+                <strong>Estructura de las 9 columnas:</strong> <code>[1. Cédula] [2. Nº Personal] [3. Nombre] [4. Grado] [5. Centro] [6. Estado] [7. Puntuación] [8. Calificación] [9. Cédula Evaluador]</code>.<br/>
+                Al pegar este formato, el sistema extrae automáticamente la <strong>Cédula</strong> (limpiando puntos o caracteres), el <strong>Nombre</strong>, la <strong>Puntuación</strong> y el <strong>Evaluador</strong>, auditando al instante si existen errores o violaciones de condición.
+              </p>
+            </div>
+
+            <div class="alerta alerta-info" style="margin-top:10px;">
+              <span class="alerta-icono" aria-hidden="true">💡</span>
+              <div>
+                <strong>Consejo:</strong> Después de pegar las filas, presione el botón azul <strong>✔️ Analizar y verificar datos</strong> para ver el resumen estadístico y pasar al Paso 2.
+              </div>
+            </div>
+          </article>
+
+          <!-- SECCIÓN 3: CONDICIONES ESPECIALES Y REGLAS -->
+          <article class="manual-seccion" id="sec-condiciones">
+            <h3>⚙️ 3. Condiciones Especiales y Reglas de Negocio</h3>
+            <p>
+              En el Paso 1, al desplegar el panel <strong>⚙️ Listas de condiciones especiales (Opcional)</strong>, puede pegar los listados de cédulas de trabajadores que se encuentran en situaciones administrativas particulares. El sistema cruzará estas listas contra la nómina principal aplicando las siguientes reglas oficiales:
+            </p>
+
+            <div style="overflow-x:auto; margin: 12px 0;">
+              <table class="manual-tabla">
+                <thead>
+                  <tr>
+                    <th>Condición</th>
+                    <th>Rango Válido</th>
+                    <th>Regla de Validación</th>
+                    <th>¿Se exporta a la matriz final?</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td><span class="badge badge-normal">Normal</span></td>
+                    <td><strong>100 – 500</strong></td>
+                    <td>Todo trabajador que no figure en las listas especiales. Requiere puntuación entre 100 y 500 y cédula de evaluador válida.</td>
+                    <td>✅ Sí (cuando está conforme)</td>
+                  </tr>
+                  <tr>
+                    <td><span class="badge badge-reposo">En Reposo</span></td>
+                    <td><strong>100 – 300</strong></td>
+                    <td>Trabajador de reposo médico. Su nota no puede superar los <strong>300 puntos</strong> ni ser menor a 100.</td>
+                    <td>✅ Sí (con nota ajustada 100–300)</td>
+                  </tr>
+                  <tr>
+                    <td><span class="badge badge-bloqueado">Bloqueado</span></td>
+                    <td><strong>Sin nota</strong></td>
+                    <td>Personal bloqueado. No debe poseer calificación asignada. Si trae nota en el Excel, se marcará en rojo como discrepancia.</td>
+                    <td>❌ No (se excluye y pasa al reporte de incidencias)</td>
+                  </tr>
+                  <tr>
+                    <td><span class="badge badge-especial">Asig. Especial</span></td>
+                    <td><strong>Sin nota</strong></td>
+                    <td>Personal en comisión o asignación especial no evaluable. Si presenta nota, el sistema alerta para limpiarla.</td>
+                    <td>❌ No (se conserva sin nota en el reporte)</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </article>
+
+          <!-- SECCIÓN 4: PASO 2 DIAGNÓSTICO Y SEMÁFORO -->
+          <article class="manual-seccion" id="sec-paso2">
+            <h3>🛠️ 4. Paso 2: Verificación y Semáforo Visual</h3>
+            <p>
+              El Paso 2 presenta todos los trabajadores en un <strong>listado interactivo</strong> donde cada fila se colorea automáticamente según su estado de conformidad:
+            </p>
+            <ul class="manual-lista">
+              <li>
+                <strong>🟢 Fila en Verde (Conforme):</strong> El empleado cumple todas las reglas de su condición, no está duplicado y tiene puntuación y evaluador válidos.
+              </li>
+              <li>
+                <strong>🔴 Fila en Rojo (Con Discrepancia):</strong> Existe un problema que requiere su atención (ej. cédula duplicada, empleado en reposo con nota mayor a 300, bloqueado con puntuación, o falta la nota/evaluador).
+              </li>
+            </ul>
+            <h4>Herramientas de navegación en el Paso 2:</h4>
+            <ul class="manual-lista">
+              <li><strong>Filtros rápidos:</strong> Alterne entre <code>📋 Todos</code>, <code>✅ Correctos</code> y <code>⚠️ Con discrepancias</code> para enfocarse únicamente en los casos pendientes por resolver.</li>
+              <li><strong>Buscador instantáneo:</strong> Escriba cualquier número de cédula o apellido en la barra superior para localizar al trabajador al instante.</li>
+              <li><strong>Edición directa en celda:</strong> Puede escribir o corregir directamente la <strong>Puntuación</strong> y la <strong>Cédula del Evaluador</strong> dentro de la tabla; el semáforo se actualizará en tiempo real al presionar <code>Enter</code> o cambiar de casilla.</li>
+            </ul>
+          </article>
+
+          <!-- SECCIÓN 5: RESOLUCIÓN DE DISCREPANCIAS -->
+          <article class="manual-seccion" id="sec-resolucion">
+            <h3>⚡ 5. Resolución de Discrepancias (Individual y Masiva)</h3>
+            <p>
+              Cuando un trabajador presenta una discrepancia (fila roja), en la columna derecha <strong>Diagnóstico y acciones</strong> verá el motivo exacto del problema junto con botones de solución en un clic o el botón <strong>⚡ Resolver</strong>:
+            </p>
+
+            <div class="manual-grid-cards">
+              <div class="manual-card">
+                <h4>🔁 Cédulas Duplicadas</h4>
+                <p>Si una cédula aparece 2 o más veces, el modal le mostrará qué datos tiene cada fila y le ofrecerá:</p>
+                <ul>
+                  <li><strong>🔀 Fusionar en 1 registro:</strong> Combina automáticamente el nombre, la puntuación válida y el evaluador en una sola fila y elimina los duplicados sobrantes.</li>
+                  <li><strong>✔ Conservar este:</strong> Mantiene la fila seleccionada y descarta las demás apariciones.</li>
+                </ul>
+              </div>
+
+              <div class="manual-card">
+                <h4>🟡 Reposo Fuera de Rango (&gt; 300)</h4>
+                <p>Si un empleado en reposo tiene una puntuación superior a 300 (por ejemplo, 450):</p>
+                <ul>
+                  <li><strong>📉 Ajustar a 300:</strong> Rebaja automáticamente la nota al máximo legal permitido (300 puntos) y valida el registro.</li>
+                  <li>También puede digitar manualmente una nota entre 100 y 300 en la casilla.</li>
+                </ul>
+              </div>
+
+              <div class="manual-card">
+                <h4>🔴 Bloqueados / 🔵 Asignación Especial con Nota</h4>
+                <p>Si un empleado no evaluable vino con calificación desde el Excel:</p>
+                <ul>
+                  <li><strong>🧹 Conservar sin puntuación:</strong> Limpia la nota indebida y deja el registro conforme a su condición.</li>
+                  <li><strong>🗑️ Eliminar empleado:</strong> Retira el registro de la sesión activa.</li>
+                </ul>
+              </div>
+
+              <div class="manual-card">
+                <h4>🧰 Barra de Acciones Masivas</h4>
+                <p>Cuando existen múltiples errores del mismo tipo, aparece una barra superior con botones para solucionar todos los casos de una sola vez:</p>
+                <ul>
+                  <li><code>🧹 Auto-desduplicar</code>: Fusiona todos los duplicados de la nómina.</li>
+                  <li><code>📉 Ajustar reposos</code>: Ajusta a 300 todos los reposos que excedan el límite.</li>
+                  <li><code>🧽 Limpiar notas especiales</code>: Borra notas en asignaciones especiales.</li>
+                  <li><code>🗑️ Eliminar bloqueados</code>: Depura los registros bloqueados con confirmación previa.</li>
+                </ul>
+              </div>
+            </div>
+          </article>
+
+          <!-- SECCIÓN 6: PASO 3 EXPORTACIÓN A EXCEL -->
+          <article class="manual-seccion" id="sec-paso3">
+            <h3>📤 6. Paso 3: Exportación Segura al Excel Protegido</h3>
+            <p>
+              Una vez verificados los registros, presione <strong>📤 Ir a Exportar</strong>. El sistema verifica automáticamente que los 3 bloques de salida tengan exactamente la misma cantidad de filas para evitar descuadres en la plantilla oficial de Excel.
+            </p>
+            <ol class="manual-lista-num">
+              <li>
+                <strong>Copiado por columnas separadas (Recomendado para hojas con columnas intermedias bloqueadas):</strong>
+                Use en orden los botones <code>📋 Copiar cédulas</code>, <code>📋 Copiar valoraciones</code> y <code>📋 Copiar evaluadores</code>. Pegue cada bloque en la columna respectiva del Excel comenzando siempre en la <strong>misma fila inicial</strong>.
+              </li>
+              <li>
+                <strong>Copiado de tabla completa (TSV):</strong>
+                Si trabaja en una hoja limpia donde las 3 columnas son contiguas, use el botón <code>📑 Copiar tabla completa (3 columnas juntas)</code>.
+              </li>
+              <li>
+                <strong>Reporte de incidencias y excluidos:</strong>
+                Al final de la pantalla encontrará la tabla con todos los empleados bloqueados, en asignación especial, eliminados o con discrepancias, junto con el botón <code>📋 Copiar reporte</code> para respaldar su auditoría en una hoja anexa.
+              </li>
+            </ol>
+          </article>
+
+          <!-- SECCIÓN 7: BORRADORES Y PRIVACIDAD -->
+          <article class="manual-seccion" id="sec-borradores">
+            <h3>💾 7. Guardar y Cargar Borradores (.json)</h3>
+            <p>
+              Dado que la aplicación no guarda información en internet por motivos de confidencialidad, si necesita pausar su trabajo y continuar más tarde o en otro computador:
+            </p>
+            <ul class="manual-lista">
+              <li>
+                <strong>💾 Guardar borrador:</strong> En la barra superior derecha, haga clic en este botón para descargar un archivo <code>borrador-verificacion-FECHA.json</code> en su equipo con todo su avance actual.
+              </li>
+              <li>
+                <strong>📂 Cargar borrador:</strong> Haga clic en este botón y seleccione el archivo <code>.json</code> guardado previamente para restaurar de inmediato todos los empleados, condiciones y correcciones realizadas.
+              </li>
+            </ul>
+          </article>
+
+          <!-- SECCIÓN 8: PREGUNTAS FRECUENTES -->
+          <article class="manual-seccion" id="sec-faq">
+            <h3>❓ 8. Preguntas Frecuentes (FAQ)</h3>
+
+            <div class="manual-faq-item">
+              <h4>¿Qué pasa si pego cédulas con puntos, espacios o prefijos como "V-"?</h4>
+              <p>El sistema limpia automáticamente los puntos, guiones y espacios para comparar las cédulas numéricamente y detectar duplicados sin fallar, conservando el formato limpio para exportar.</p>
+            </div>
+
+            <div class="manual-faq-item">
+              <h4>¿Puedo agregar una cédula en "En Reposo" si también está pegada en la lista principal?</h4>
+              <p>Sí. Precisamente así funciona el cruce: usted pega toda su nómina en el cuadro principal y pega las cédulas de reposo en su casilla especial; el sistema identificará a esos trabajadores en la lista general y les aplicará el rango de 100 a 300 puntos.</p>
+            </div>
+
+            <div class="manual-faq-item">
+              <h4>¿Qué ocurre si una misma cédula aparece en dos listas especiales (ej. Bloqueado y Reposo)?</h4>
+              <p>El sistema aplica una jerarquía estricta de seguridad: <strong>Bloqueado</strong> tiene prioridad máxima sobre cualquier otra condición, seguido de <strong>En Reposo</strong> y finalmente <strong>Asignación Especial</strong>. Además, le mostrará un aviso en el Paso 1 informando el solapamiento.</p>
+            </div>
+
+            <div class="manual-faq-item">
+              <h4>¿Por qué no aparece un empleado bloqueado en los bloques de copia del Paso 3?</h4>
+              <p>Por regla de negocio, los bloques principales de exportación solo incluyen registros con estado <strong>Válido y Evaluable</strong> (Normales y Reposos conformes) para no contaminar la matriz de carga. Los bloqueados y asignaciones especiales quedan documentados en la tabla inferior de <strong>Registros excluidos o con incidencias</strong>.</p>
+            </div>
+          </article>
+
+        </div>
+      </div>
+
     </div>
   </div>
 

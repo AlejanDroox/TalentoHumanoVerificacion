@@ -1941,10 +1941,168 @@ modalOverlay.addEventListener("click", e => {
 });
 document.addEventListener("keydown", e => {
   if (e.key === "Escape") {
-    if (modalResolucionOverlay.classList.contains("visible")) cerrarModalResolucion();
+    if (modalManualOverlay && modalManualOverlay.classList.contains("visible")) cerrarManualUsuario();
+    else if (modalResolucionOverlay.classList.contains("visible")) cerrarModalResolucion();
     else if (modalOverlay.classList.contains("visible")) cerrarModal();
   }
 });
+
+/* ============================================================
+   24B. MANUAL DE USUARIO INTERACTIVO Y AYUDA CONTEXTUAL
+   ============================================================ */
+const modalManualOverlay    = $("modal-manual-overlay");
+const btnAbrirManual        = $("btn-abrir-manual");
+const btnCerrarManual       = $("btn-cerrar-manual");
+const btnImprimirManual     = $("btn-imprimir-manual");
+const manualBuscador        = $("manual-buscador");
+const manualContenido       = $("manual-contenido");
+const manualSinResultados   = $("manual-sin-resultados");
+const manualNavBtns         = document.querySelectorAll(".manual-nav-btn");
+const manualSecciones       = document.querySelectorAll(".manual-seccion");
+const btnsAyudaContextual   = document.querySelectorAll(".btn-ayuda-ctx");
+
+function normalizarTextoBusqueda(str) {
+  return (str || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
+function resetearFiltroManual() {
+  if (manualBuscador) manualBuscador.value = "";
+  manualSecciones.forEach(sec => { sec.style.display = ""; });
+  if (manualSinResultados) manualSinResultados.style.display = "none";
+}
+
+function activarBotonNavManual(secId) {
+  manualNavBtns.forEach(btn => {
+    btn.classList.toggle("activo", btn.dataset.sec === secId);
+  });
+}
+
+function abrirManualUsuario(secId) {
+  if (!modalManualOverlay) return;
+  resetearFiltroManual();
+  modalManualOverlay.classList.add("visible");
+
+  const destinoId = secId || "sec-intro";
+  activarBotonNavManual(destinoId);
+
+  requestAnimationFrame(() => {
+    const seccionEl = $(destinoId);
+    if (seccionEl && manualContenido) {
+      if (destinoId === "sec-intro") {
+        manualContenido.scrollTop = 0;
+      } else {
+        seccionEl.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    }
+    if (manualBuscador) manualBuscador.focus();
+  });
+}
+
+function cerrarManualUsuario() {
+  if (!modalManualOverlay) return;
+  modalManualOverlay.classList.remove("visible");
+  document.body.classList.remove("imprimiendo-manual");
+}
+
+if (btnAbrirManual) {
+  btnAbrirManual.addEventListener("click", () => abrirManualUsuario("sec-intro"));
+}
+
+if (btnCerrarManual) {
+  btnCerrarManual.addEventListener("click", cerrarManualUsuario);
+}
+
+if (modalManualOverlay) {
+  modalManualOverlay.addEventListener("click", e => {
+    if (e.target === modalManualOverlay) cerrarManualUsuario();
+  });
+}
+
+/* Navegación por el índice lateral del manual */
+manualNavBtns.forEach(btn => {
+  btn.addEventListener("click", () => {
+    const secId = btn.dataset.sec;
+    resetearFiltroManual();
+    activarBotonNavManual(secId);
+    const seccionEl = $(secId);
+    if (seccionEl && manualContenido) {
+      if (secId === "sec-intro") {
+        manualContenido.scrollTop = 0;
+      } else {
+        seccionEl.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    }
+  });
+});
+
+/* Sincronización de pestaña activa al hacer scroll en el manual */
+if (manualContenido) {
+  manualContenido.addEventListener("scroll", () => {
+    if (manualBuscador && manualBuscador.value.trim() !== "") return;
+    let seccionActivaId = "sec-intro";
+    const scrollTop = manualContenido.scrollTop;
+    manualSecciones.forEach(sec => {
+      if (sec.offsetTop - manualContenido.offsetTop - 60 <= scrollTop) {
+        seccionActivaId = sec.id;
+      }
+    });
+    activarBotonNavManual(seccionActivaId);
+  });
+}
+
+/* Botones de ayuda contextual en Pasos 1, 2 y 3 */
+btnsAyudaContextual.forEach(btn => {
+  btn.addEventListener("click", () => {
+    const secId = btn.dataset.manualSec || "sec-intro";
+    abrirManualUsuario(secId);
+  });
+});
+
+/* Buscador en tiempo real dentro del manual */
+if (manualBuscador) {
+  manualBuscador.addEventListener("input", () => {
+    const termino = normalizarTextoBusqueda(manualBuscador.value.trim());
+    if (!termino) {
+      resetearFiltroManual();
+      return;
+    }
+
+    let coincidencias = 0;
+    let primeraCoincidenciaId = null;
+
+    manualSecciones.forEach(sec => {
+      const textoSeccion = normalizarTextoBusqueda(sec.textContent);
+      const coincide = textoSeccion.includes(termino);
+      sec.style.display = coincide ? "" : "none";
+      if (coincide) {
+        coincidencias++;
+        if (!primeraCoincidenciaId) primeraCoincidenciaId = sec.id;
+      }
+    });
+
+    if (manualSinResultados) {
+      manualSinResultados.style.display = coincidencias === 0 ? "block" : "none";
+    }
+    if (primeraCoincidenciaId) {
+      activarBotonNavManual(primeraCoincidenciaId);
+    }
+  });
+}
+
+/* Impresión / Exportación a PDF limpia del manual */
+if (btnImprimirManual) {
+  btnImprimirManual.addEventListener("click", () => {
+    resetearFiltroManual();
+    document.body.classList.add("imprimiendo-manual");
+    window.print();
+    setTimeout(() => {
+      document.body.classList.remove("imprimiendo-manual");
+    }, 500);
+  });
+}
 
 /* ============================================================
    25. PROTECCIÓN CONTRA CIERRE ACCIDENTAL
